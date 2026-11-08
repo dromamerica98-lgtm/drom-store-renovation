@@ -5,3 +5,4 @@ dist/
 !.dev.vars.example
 *.log
 .DS_Store
+wrangler.deploy.json

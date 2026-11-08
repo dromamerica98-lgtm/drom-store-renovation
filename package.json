@@ -13,7 +13,9 @@
     "db:migrate:local": "wrangler d1 migrations apply renovation-db --local",
     "db:seed:local": "wrangler d1 execute renovation-db --local --file=seed/sample.sql",
     "db:reset:local": "rm -rf .wrangler/state && npm run db:migrate:local && npm run db:seed:local",
-    "deploy": "npm run build && wrangler d1 migrations apply renovation-db --remote && wrangler deploy"
+    "deploy": "npm run build:deploy && wrangler d1 migrations apply renovation-db --remote && wrangler deploy --config wrangler.deploy.json",
+    "build:deploy": "npm run build && node scripts/prepare-deploy.mjs",
+    "preview:deploy": "npm run build:deploy && wrangler dev --config wrangler.deploy.json"
   },
   "dependencies": {
     "hono": "^4.13.17",

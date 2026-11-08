@@ -36,7 +36,7 @@
   "vars": {
     // Cloudflare Access settings, filled in before deployment (see README).
     // Required: the Application Audience (AUD) tag of the Access application protecting this Worker.
-    "ACCESS_AUD": "",
+    "ACCESS_AUD": "18b6b14ba33ad747f60de040904d3f9103ea40d8dc0ce5fb55c796b2475c4f63",
     // Needed only for the JWT fallback, e.g. "https://your-team.cloudflareaccess.com".
     "ACCESS_TEAM_DOMAIN": "https://damp-bread-d7b5.cloudflareaccess.com"
   },

@@ -10,7 +10,7 @@
 - **שלב 2:**
   - **אבטחה:** כל בקשות ה־API מאובטחות ב־Cloudflare Access.
   - **קבצים:** אפשר להעלות, לצפות ולמחוק קובצי PDF ותמונות של הצעות מחיר. הקבצים נשמרים ב־R2 פרטי.
-- **שלב 3, עוד לא נעשה:** פריסה. ראו [הגדרות Cloudflare לפני הפריסה](#הגדרות-cloudflare-לפני-הפריסה).
+- **שלב 3:** פריסה ל־Cloudflare. ראו [פריסה ל־Cloudflare](#פריסה-ל-cloudflare).
 
 ## אבטחה
 
@@ -25,6 +25,7 @@
   - שם הקובץ מנוקה מתווים מסוכנים, כולל תווי כיוון שיכולים להסוות סיומת.
 - **הגשה לדפדפן:** הקבצים חוזרים לדפדפן עם `Cache-Control: private, no-store` ו־`X-Content-Type-Options: nosniff`.
 - **מחיקה:** מחיקת קובץ, הצעה או תחום מוחקת גם את האובייקטים מ־R2.
+- **בייצור:** גם קובצי האתר מוגשים רק אחרי בדיקת זהות של Access, ולא רק ה־API.
 
 ## הרצה מקומית
 
@@ -68,43 +69,43 @@ npm test
 npm run typecheck
 ```
 
-## הגדרות Cloudflare לפני הפריסה
+## פריסה ל־Cloudflare
 
-אלה הדברים שצריך להגדיר בחשבון Cloudflare. אף אחד מהם הוא לא מפתח סודי, ואין צורך להעביר מפתחות לאיש.
+בייצור, ה־Worker מגיש בעצמו גם את קובצי האתר (HTML, JS, CSS), ולא רק את ה־API. הסקריפט `scripts/prepare-deploy.mjs` מכניס את הקבצים לתוך ה־Worker, ויוצר את `wrangler.deploy.json` עם אותם חיבורים ומשתנים, בלי Static Assets. כך כל בקשה, גם לדף עצמו, עוברת בדיקת זהות של Access. ובלי Access מוגדר, שום דבר לא מוגש. סביבת הפיתוח (`npm run dev`) לא השתנתה.
 
-1. **חשבון Cloudflare:** חשבון חינמי מספיק.
-2. **מסד הנתונים ואחסון הקבצים:**
+```bash
+npm run deploy
+```
 
-   ```bash
-   npx wrangler d1 create renovation-db
-   ```
+הפקודה בונה את האפליקציה, מכינה את חבילת הפריסה, מריצה את המיגרציות על D1 ופורסת. צריך להריץ קודם `npx wrangler login`, או להגדיר `CLOUDFLARE_API_TOKEN`.
 
-   העתיקו את ה־`database_id` שיודפס לבלוק `d1_databases` ב־`wrangler.jsonc`.
+כדי לבדוק את חבילת הייצור מקומית, עם זהות מדומה:
 
-   ```bash
-   npx wrangler r2 bucket create renovation-files
-   ```
+```bash
+npm run build:deploy
+```
 
-   **הקבצים חייבים להישאר פרטיים:** אל תפעילו כתובת `r2.dev` ואל תחברו דומיין ל־bucket.
-3. **Cloudflare Zero Trust:**
-   - הפעילו את Zero Trust. החבילה החינמית מספיקה עד 50 משתמשים.
-   - בחרו שם צוות, וממנו נגזרת כתובת הצוות: `https://<שם>.cloudflareaccess.com`.
-   - ודאו ששיטת הכניסה "One-time PIN" (קוד חד־פעמי למייל) פעילה.
-4. **הגנת Access על ה־Worker:** אחרי הפריסה הראשונה:
-   - ב־Workers & Pages, בחרו את `drom-store-renovation`. ב־Settings, תחת Domains & Routes, הפעילו את Cloudflare Access על כתובת `workers.dev`.
-   - ב־"Manage Cloudflare Access", הגדירו מדיניות Allow לכתובות המייל של המשתמשים.
-   - העתיקו את ה־**Application Audience (AUD) Tag** של האפליקציה.
-5. **משתנים ב־`wrangler.jsonc`, תחת `vars`:**
-   - `ACCESS_AUD`: חובה. זה ה־AUD מהשלב הקודם.
-   - `ACCESS_TEAM_DOMAIN`: מומלץ. זו כתובת הצוות, ומשמשת לאימות ה־JWT כגיבוי.
+```bash
+npx wrangler dev --config wrangler.deploy.json --var ACCESS_AUD:local-dev-aud
+```
 
-   אחרי העדכון צריך לפרוס שוב.
-6. **כתובות Preview:** הן כבויות בהגדרות (`preview_urls: false`). אם תפעילו אותן, הפעילו עליהן גם Access.
-7. **פריסה:**
-   - **דרך GitHub:** חברו את המאגר ב־Workers Builds. פקודת הבנייה היא `npm run build`, ופקודת הפריסה היא `npx wrangler d1 migrations apply renovation-db --remote && npx wrangler deploy`.
-   - **מהמחשב:** הריצו `npm run deploy` אחרי `npx wrangler login`.
+### ההגדרות ב־Cloudflare
 
-**אם פורסים לפני שמגדירים את Access:** זה בטוח. ה־API חוסם את כל הבקשות עם שגיאה 500 עד ש־`ACCESS_AUD` מוגדר, ומעטפת האתר עצמה לא מכילה נתונים.
+אף אחד מהפריטים האלה הוא לא מפתח סודי.
+
+1. **D1 ו־R2:**
+   - מסד הנתונים `renovation-db`, שהמזהה שלו כתוב ב־`wrangler.jsonc`.
+   - ה־bucket `renovation-files`, שחייב להישאר פרטי: בלי `r2.dev` ובלי דומיין מחובר.
+2. **Zero Trust:**
+   - צוות עם כניסה בקוד חד־פעמי (One-time PIN).
+   - אפליקציית Access מסוג self-hosted לכתובת ה־`workers.dev` של ה־Worker, עם מדיניות Allow לכתובות המייל המאושרות בלבד.
+   - כדאי ליצור את האפליקציה **לפני** הפריסה הראשונה, כך שהכתובת מוגנת מהבקשה הראשונה.
+3. **משתנים ב־`wrangler.jsonc`:**
+   - `ACCESS_AUD`: ה־Application Audience (AUD) Tag של אפליקציית ה־Access.
+   - `ACCESS_TEAM_DOMAIN`: כתובת הצוות.
+4. **כתובות preview:** כבויות (`preview_urls: false`).
+
+**הוספה או הסרה של משתמשים:** ב־Zero Trust, בתפריט Access, פותחים את Policies, ואז את המדיניות `drom-store-renovation - approved users`. שם מוסיפים או מסירים כתובות מייל. לא צריך לפרוס מחדש.
 
 ## מבנה הקוד
 
