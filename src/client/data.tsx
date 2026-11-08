@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { computeProject, type ProjectSummary } from '../shared/calc';
 import type { Dataset } from '../shared/types';
-import { api } from './api';
+import { api, AuthError } from './api';
 
 interface DataContextValue {
   data: Dataset;
@@ -24,15 +24,18 @@ function message(e: unknown): string {
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Dataset | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ message: string; auth: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; auth: boolean } | null>(null);
 
   const reload = useCallback(async () => {
     try {
       setData(await api.data());
       setLoadError(null);
     } catch (e) {
-      setLoadError(message(e));
+      const error = { message: message(e), auth: e instanceof AuthError };
+      // Before the first load this shows as the splash; afterwards (a background refresh) as a toast.
+      setLoadError(error);
+      setToast(error);
     }
   }, []);
 
@@ -59,7 +62,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await reload();
         return true;
       } catch (e) {
-        setToast(message(e));
+        setToast({ message: message(e), auth: e instanceof AuthError });
         return false;
       }
     },
@@ -73,9 +76,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       <div className="splash">
         {loadError ? (
           <>
-            <p>לא הצלחנו לטעון את הנתונים: {loadError}</p>
-            <button className="btn primary" onClick={() => void reload()}>
-              נסו שוב
+            <p>{loadError.auth ? loadError.message : `לא הצלחנו לטעון את הנתונים: ${loadError.message}`}</p>
+            <button className="btn primary" onClick={() => window.location.reload()}>
+              טעינה מחדש
             </button>
           </>
         ) : (
@@ -89,8 +92,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     <DataContext.Provider value={{ data, summary, reload, run }}>
       {children}
       {toast && (
-        <div className="toast" role="alert" onClick={() => setToast(null)}>
-          {toast}
+        <div
+          className="toast"
+          role="alert"
+          onClick={() => (toast.auth ? window.location.reload() : setToast(null))}
+        >
+          {toast.message}
         </div>
       )}
     </DataContext.Provider>

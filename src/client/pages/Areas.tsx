@@ -24,6 +24,7 @@ import {
   PageHeader,
   Section,
 } from '../components/ui';
+import { QuoteFiles } from '../components/QuoteFiles';
 import { useData } from '../data';
 import { AreaForm, ChangeOrderForm, PaymentForm, QuoteForm } from '../forms';
 import { supplierName } from '../util';
@@ -107,7 +108,7 @@ export function AreaPage() {
   const close = () => setEditing(null);
 
   const deleteArea = async () => {
-    if (!confirm(`למחוק את התחום "${area.name}" עם כל הצעות המחיר והתוספות שלו?`)) return;
+    if (!confirm(`למחוק את התחום "${area.name}" עם כל הצעות המחיר, הקבצים והתוספות שלו?`)) return;
     if (await run(() => api.remove('areas', area.id))) navigate('/areas');
   };
 
@@ -177,6 +178,7 @@ export function AreaPage() {
                     {q.validUntil && <span>בתוקף עד {formatDate(q.validUntil)}</span>}
                   </div>
                   {q.description && <p className="quote-desc">{q.description}</p>}
+                  <QuoteFiles quoteId={q.id} />
                   <div className="quote-actions">
                     {q.status === 'open' &&
                       (selected ? (

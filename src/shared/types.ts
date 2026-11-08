@@ -69,8 +69,18 @@ export interface Quote extends Audit {
   validUntil: string | null;
   description: string | null;
   status: QuoteStatus;
-  fileKey: string | null;
-  fileName: string | null;
+}
+
+/** A PDF or image attached to a quote. The file itself is in R2 and is served by /api/files/:id. */
+export interface QuoteFile {
+  id: string;
+  quoteId: string;
+  fileName: string;
+  contentType: string;
+  /** Bytes. */
+  size: number;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface ChangeOrder extends Audit {
@@ -114,6 +124,7 @@ export interface Dataset {
   suppliers: Supplier[];
   workAreas: WorkArea[];
   quotes: Quote[];
+  quoteFiles: QuoteFile[];
   changeOrders: ChangeOrder[];
   expenses: Expense[];
   payments: Payment[];

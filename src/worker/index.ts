@@ -1,17 +1,21 @@
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { z } from 'zod';
+import { MAX_FILE_BYTES } from '../shared/files';
 import type {
   ChangeOrder,
   Dataset,
   Expense,
   Payment,
   Quote,
+  QuoteFile,
   Settings,
   Supplier,
   WorkArea,
 } from '../shared/types';
+import { accessAuth } from './access';
 import { all, count, first, insert, remove, update } from './db';
+import { contentDisposition, detectFileType, sanitizeFileName } from './files';
 import {
   changeOrderSchema,
   changeOrderUpdateSchema,
@@ -31,16 +35,13 @@ type Ctx = Context<AppEnv>;
 const app = new Hono<AppEnv>().basePath('/api');
 
 /**
- * Identifies the user. Cloudflare Access puts the signed-in email in this header.
- * Stage 2 adds verification of the Access JWT; until then the app is only run locally.
- * In local development (vite dev) a fixed developer identity is used.
+ * Every API request needs an identity verified by Cloudflare Access: `ctx.access` (or, as a
+ * fallback, the Access JWT checked against the team's keys); see access.ts. Plain headers are
+ * never trusted. Under `vite dev` the identity is simulated by wrangler from the `access.dev`
+ * block in wrangler.jsonc, and only then may ACCESS_AUD be left empty; production builds
+ * compile that allowance away.
  */
-app.use('*', async (c, next) => {
-  const email = c.req.header('cf-access-authenticated-user-email') ?? (import.meta.env.DEV ? 'dev@localhost' : null);
-  if (!email) throw new HTTPException(401, { message: 'נדרשת התחברות' });
-  c.set('user', email);
-  await next();
-});
+app.use('*', accessAuth({ allowAnyAud: import.meta.env.DEV }));
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
@@ -67,9 +68,10 @@ function conflict(message: string): never {
   throw new HTTPException(409, { message });
 }
 
-async function requireExists(c: Ctx, table: string, id: string, label: string) {
+/** Throws 400 with `message` (e.g. "הספק לא נמצא") when the row does not exist. */
+async function requireExists(c: Ctx, table: string, id: string, message: string) {
   if (!(await count(c.env.DB, `SELECT COUNT(*) AS n FROM ${table} WHERE id = ?`, id))) {
-    throw new HTTPException(400, { message: `${label} לא נמצא` });
+    throw new HTTPException(400, { message });
   }
 }
 
@@ -80,10 +82,14 @@ app.get('/data', async (c) => {
   const settingsRow = await first<Settings & { id?: number }>(db, 'SELECT * FROM settings WHERE id = 1');
   if (!settingsRow) throw new HTTPException(500, { message: 'הגדרות הפרויקט חסרות' });
   const { id: _id, ...settings } = settingsRow;
-  const [suppliers, workAreas, quotes, changeOrders, expenses, payments] = await Promise.all([
+  const [suppliers, workAreas, quotes, quoteFiles, changeOrders, expenses, payments] = await Promise.all([
     all<Supplier>(db, 'SELECT * FROM suppliers ORDER BY name'),
     all<WorkArea>(db, 'SELECT * FROM work_areas ORDER BY sort_order, name'),
     all<Quote>(db, 'SELECT * FROM quotes ORDER BY received_date DESC, created_at DESC'),
+    all<QuoteFile>(
+      db,
+      'SELECT id, quote_id, file_name, content_type, size, created_at, created_by FROM quote_files ORDER BY created_at',
+    ),
     all<ChangeOrder>(db, 'SELECT * FROM change_orders ORDER BY date, created_at'),
     all<Expense>(db, 'SELECT * FROM expenses ORDER BY created_at'),
     all<Payment>(db, 'SELECT * FROM payments ORDER BY date DESC, created_at DESC'),
@@ -93,6 +99,7 @@ app.get('/data', async (c) => {
     suppliers,
     workAreas,
     quotes,
+    quoteFiles,
     changeOrders,
     expenses,
     payments,
@@ -150,8 +157,11 @@ app.delete('/areas/:id', async (c) => {
   if (await count(c.env.DB, 'SELECT COUNT(*) AS n FROM payments WHERE work_area_id = ?', id)) {
     conflict('לתחום יש תשלומים. מחקו או העבירו אותם קודם.');
   }
-  // Quotes and change orders are removed by ON DELETE CASCADE.
-  return (await remove(c.env.DB, 'work_areas', id)) ? c.json({ ok: true }) : notFound();
+  const keys = await fileKeys(c, 'q.work_area_id = ?', id);
+  // Quotes, their file rows and change orders are removed by ON DELETE CASCADE.
+  if (!(await remove(c.env.DB, 'work_areas', id))) notFound();
+  await deleteObjects(c, keys);
+  return c.json({ ok: true });
 });
 
 /** Selects a quote for a work area (or clears the selection with quoteId: null). */
@@ -178,8 +188,8 @@ app.post('/areas/:id/selection', async (c) => {
 
 app.post('/quotes', async (c) => {
   const data = await body(c, quoteSchema);
-  await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה');
-  await requireExists(c, 'suppliers', data.supplierId, 'הספק');
+  await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה לא נמצא');
+  await requireExists(c, 'suppliers', data.supplierId, 'הספק לא נמצא');
   const id = await insert(c.env.DB, 'quotes', data, c.get('user'));
   // A work area that receives its first quote moves on to collecting quotes.
   await c.env.DB.prepare(
@@ -193,7 +203,7 @@ app.post('/quotes', async (c) => {
 app.put('/quotes/:id', async (c) => {
   const id = c.req.param('id');
   const data = await body(c, quoteUpdateSchema);
-  await requireExists(c, 'suppliers', data.supplierId, 'הספק');
+  await requireExists(c, 'suppliers', data.supplierId, 'הספק לא נמצא');
   if (!(await update(c.env.DB, 'quotes', id, data, c.get('user')))) notFound();
   if (data.status === 'rejected') await clearSelection(c, id);
   return c.json({ ok: true });
@@ -201,9 +211,113 @@ app.put('/quotes/:id', async (c) => {
 
 app.delete('/quotes/:id', async (c) => {
   const id = c.req.param('id');
+  const keys = await fileKeys(c, 'q.id = ?', id);
   await clearSelection(c, id);
-  return (await remove(c.env.DB, 'quotes', id)) ? c.json({ ok: true }) : notFound();
+  // File rows are removed by ON DELETE CASCADE; the objects are removed from R2 below.
+  if (!(await remove(c.env.DB, 'quotes', id))) notFound();
+  await deleteObjects(c, keys);
+  return c.json({ ok: true });
 });
+
+// ---------- Quote files (private R2 bucket, served only through this Worker) ----------
+
+const MAX_UPLOAD_REQUEST_BYTES = MAX_FILE_BYTES + 64 * 1024;
+
+app.post('/quotes/:id/files', async (c) => {
+  const quoteId = c.req.param('id');
+  if (Number(c.req.header('content-length') ?? 0) > MAX_UPLOAD_REQUEST_BYTES) tooLarge();
+  await requireExists(c, 'quotes', quoteId, 'הצעת המחיר לא נמצאה');
+
+  const form = await c.req.raw.formData().catch(() => null);
+  const file = form?.get('file');
+  if (!file || typeof file === 'string') throw new HTTPException(400, { message: 'לא נשלח קובץ' });
+  if (file.size === 0) throw new HTTPException(400, { message: 'הקובץ ריק' });
+  if (file.size > MAX_FILE_BYTES) tooLarge();
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const type = detectFileType(bytes);
+  if (!type) {
+    throw new HTTPException(415, { message: 'סוג הקובץ לא נתמך. אפשר להעלות PDF או תמונה (JPEG, PNG, WebP, HEIC).' });
+  }
+
+  const id = crypto.randomUUID();
+  const key = `quotes/${quoteId}/${id}`;
+  const fileName = sanitizeFileName(file.name, type);
+  const user = c.get('user');
+  await c.env.FILES.put(key, bytes, {
+    httpMetadata: { contentType: type.contentType },
+    customMetadata: { quoteId, uploadedBy: user },
+  });
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO quote_files (id, quote_id, r2_key, file_name, content_type, size, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(id, quoteId, key, fileName, type.contentType, bytes.byteLength, new Date().toISOString(), user)
+      .run();
+  } catch (e) {
+    await c.env.FILES.delete(key);
+    throw e;
+  }
+  return c.json({ id }, 201);
+});
+
+/** Streams a file to a signed-in user. `?download=1` saves it instead of opening it. */
+app.get('/files/:id', async (c) => {
+  const row = await first<{ r2Key: string; fileName: string; contentType: string }>(
+    c.env.DB,
+    'SELECT r2_key, file_name, content_type FROM quote_files WHERE id = ?',
+    c.req.param('id'),
+  );
+  if (!row) notFound();
+  const object = await c.env.FILES.get(row.r2Key);
+  if (!object) throw new HTTPException(404, { message: 'הקובץ לא נמצא באחסון' });
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': row.contentType,
+      'Content-Length': String(object.size),
+      'Content-Disposition': contentDisposition(c.req.query('download') ? 'attachment' : 'inline', row.fileName),
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+});
+
+app.delete('/files/:id', async (c) => {
+  const id = c.req.param('id');
+  const row = await first<{ r2Key: string }>(c.env.DB, 'SELECT r2_key FROM quote_files WHERE id = ?', id);
+  if (!row) notFound();
+  await remove(c.env.DB, 'quote_files', id);
+  await deleteObjects(c, [row.r2Key]);
+  return c.json({ ok: true });
+});
+
+function tooLarge(): never {
+  throw new HTTPException(413, { message: `הקובץ גדול מדי. הגודל המרבי הוא ${MAX_FILE_BYTES / (1024 * 1024)} MB.` });
+}
+
+/** R2 keys of the files of the quotes matching `where` (on quotes aliased as q). */
+async function fileKeys(c: Ctx, where: string, param: string): Promise<string[]> {
+  const rows = await all<{ r2Key: string }>(
+    c.env.DB,
+    `SELECT f.r2_key FROM quote_files f JOIN quotes q ON q.id = f.quote_id WHERE ${where}`,
+    param,
+  );
+  return rows.map((r) => r.r2Key);
+}
+
+/**
+ * Removes objects after their rows are gone. D1 is the source of truth: if this fails,
+ * the objects are unreachable (no row points to them) and only take up space.
+ */
+async function deleteObjects(c: Ctx, keys: string[]) {
+  if (!keys.length) return;
+  try {
+    await c.env.FILES.delete(keys);
+  } catch (e) {
+    console.error('R2 delete failed', keys.length, e);
+  }
+}
 
 /** Clears the selection of any work area that selected this quote. */
 async function clearSelection(c: Ctx, quoteId: string) {
@@ -222,7 +336,7 @@ async function clearSelection(c: Ctx, quoteId: string) {
 
 app.post('/change-orders', async (c) => {
   const data = await body(c, changeOrderSchema);
-  await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה');
+  await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה לא נמצא');
   const id = await insert(c.env.DB, 'change_orders', data, c.get('user'));
   return c.json({ id }, 201);
 });
@@ -265,8 +379,8 @@ app.delete('/expenses/:id', async (c) => {
 // ---------- Payments ----------
 
 async function checkPaymentTarget(c: Ctx, data: z.output<typeof paymentSchema>) {
-  if (data.workAreaId) await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה');
-  if (data.expenseId) await requireExists(c, 'expenses', data.expenseId, 'ההוצאה');
+  if (data.workAreaId) await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה לא נמצא');
+  if (data.expenseId) await requireExists(c, 'expenses', data.expenseId, 'ההוצאה לא נמצאה');
 }
 
 app.post('/payments', async (c) => {

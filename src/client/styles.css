@@ -1273,3 +1273,89 @@ a:focus-visible {
   vertical-align: middle;
   flex-shrink: 0;
 }
+
+/* ---------- Quote files ---------- */
+
+.quote-files {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding-inline-start: 10px;
+  background: var(--page);
+}
+
+.file-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--ink);
+}
+
+.file-link .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-ink);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.file-size {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.file-pick {
+  align-self: flex-start;
+  position: relative;
+}
+
+.file-pick.is-busy {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.file-pick:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.picked-files {
+  margin: 6px 0 0;
+  padding-inline-start: 18px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+input[type='file'] {
+  min-height: 0;
+  padding: 8px;
+  font-size: 14px;
+}

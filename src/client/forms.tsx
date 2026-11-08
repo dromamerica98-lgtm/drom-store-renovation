@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   AREA_STATUS_LABELS,
   CHANGE_ORDER_STATUS_LABELS,
@@ -23,7 +23,9 @@ import type {
   VatMode,
   WorkArea,
 } from '../shared/types';
+import { QUOTE_FILE_ACCEPT, formatFileSize } from '../shared/files';
 import { api } from './api';
+import { checkFileSize } from './components/QuoteFiles';
 import { Field, MoneyField, Select, Sheet, TextArea, TextInput, setter } from './components/ui';
 import { todayISO, useData } from './data';
 
@@ -165,6 +167,11 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
     description: quote?.description ?? '',
     status: quote?.status ?? ('open' as QuoteStatus),
   });
+  const [files, setFiles] = useState<File[]>([]);
+  // If an upload fails after the quote was saved, a retry must not create the quote or the
+  // already-uploaded files a second time.
+  const createdId = useRef<string | null>(null);
+  const uploaded = useRef(new Set<File>());
   const set = setter(setF);
   const { busy, error, validated, remove } = useSubmit(onClose);
 
@@ -172,6 +179,11 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
     validated(
       () => {
         if (!f.supplierId) throw new FormError('יש לבחור ספק');
+        try {
+          files.forEach(checkFileSize);
+        } catch (e) {
+          throw new FormError((e as Error).message);
+        }
         return {
           newSupplier: f.supplierId === NEW_SUPPLIER ? requireText('שם הספק החדש', f.newSupplier) : null,
           body: {
@@ -189,14 +201,21 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
         let supplierId = body.supplierId;
         if (newSupplier) supplierId = (await api.create('suppliers', { name: newSupplier })).id;
         const payload = { ...body, supplierId };
-        return quote ? api.update('quotes', quote.id, payload) : api.create('quotes', { ...payload, workAreaId: areaId });
+        let quoteId = quote?.id ?? createdId.current;
+        if (quoteId) await api.update('quotes', quoteId, payload);
+        else quoteId = createdId.current = (await api.create('quotes', { ...payload, workAreaId: areaId })).id;
+        for (const file of files) {
+          if (uploaded.current.has(file)) continue;
+          await api.uploadQuoteFile(quoteId, file);
+          uploaded.current.add(file);
+        }
       },
     );
 
   return (
     <Sheet title={quote ? 'עריכת הצעת מחיר' : 'הצעת מחיר חדשה'} onClose={onClose} onSubmit={onSubmit} busy={busy}
       error={error}
-      onDelete={quote ? () => remove('למחוק את הצעת המחיר?', () => api.remove('quotes', quote.id)) : undefined}
+      onDelete={quote ? () => remove('למחוק את הצעת המחיר ואת הקבצים שלה?', () => api.remove('quotes', quote.id)) : undefined}
     >
       <Select
         label="ספק *"
@@ -217,6 +236,28 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
         <TextInput label="בתוקף עד" type="date" value={f.validUntil} onChange={set('validUntil')} />
       </div>
       <TextArea label="מה כלול בהצעה" value={f.description} onChange={set('description')} />
+      <Field label={quote ? 'צירוף קבצים נוספים' : 'קובץ ההצעה (PDF או תמונה)'}>
+        {(id) => (
+          <>
+            <input
+              id={id}
+              type="file"
+              accept={QUOTE_FILE_ACCEPT}
+              multiple
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            />
+            {files.length > 0 && (
+              <ul className="picked-files">
+                {files.map((file) => (
+                  <li key={`${file.name}-${file.size}`} dir="auto">
+                    {file.name} · {formatFileSize(file.size)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </Field>
       <Select label="סטטוס" value={f.status} onChange={set('status')} options={QUOTE_STATUS_LABELS} />
     </Sheet>
   );

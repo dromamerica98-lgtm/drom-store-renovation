@@ -69,6 +69,21 @@ const ICONS = {
       <path d="m3 7 9 6 9-6" />
     </>
   ),
+  pdf: (
+    <>
+      <path d="M6 2h9l5 5v15H6z" />
+      <path d="M14 2v6h6" />
+      <path d="M9 17v-4h1.5a1.25 1.25 0 0 1 0 2.5H9M14 13v4h1a2 2 0 0 0 0-4z" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="10" r="2" />
+      <path d="m21 16-5-5-9 9" />
+    </>
+  ),
+  attach: <path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L15 6.6" />,
 };
 
 export type IconName = keyof typeof ICONS;

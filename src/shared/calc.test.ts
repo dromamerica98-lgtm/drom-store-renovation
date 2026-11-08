@@ -50,8 +50,6 @@ function quote(id: string, workAreaId: string, shekels: number, overrides: Parti
     validUntil: null,
     description: null,
     status: 'open',
-    fileKey: null,
-    fileName: null,
     ...overrides,
   };
 }
@@ -108,6 +106,7 @@ function dataset(overrides: Partial<Dataset> = {}): Dataset {
     suppliers: [{ ...audit, id: 's1', name: 'ספק א', contactName: null, phone: null, email: null, taxId: null, notes: null }],
     workAreas: [],
     quotes: [],
+    quoteFiles: [],
     changeOrders: [],
     expenses: [],
     payments: [],

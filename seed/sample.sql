@@ -3,6 +3,7 @@
 
 DELETE FROM payments;
 DELETE FROM change_orders;
+DELETE FROM quote_files;
 DELETE FROM quotes;
 DELETE FROM work_areas;
 DELETE FROM expenses;
@@ -37,14 +38,14 @@ INSERT INTO work_areas (id, name, status, progress, estimate_amount, estimate_va
   ('area-carpentry', 'נגרות ודלפקים', 'collecting_quotes', 0, 9000000, 'excl', NULL, NULL, 6, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
   ('area-signs', 'שילוט', 'not_started', 0, NULL, 'excl', NULL, NULL, 7, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה');
 
-INSERT INTO quotes (id, work_area_id, supplier_id, amount, vat_mode, received_date, valid_until, description, status, file_key, file_name, created_at, created_by, updated_at, updated_by) VALUES
-  ('q-elec-1', 'area-elec', 'sup-elec-1', 8200000, 'excl', '2026-09-20', '2026-10-20', 'לוח חשמל חדש, 60 נקודות, תאורת מסילה', 'open', NULL, NULL, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-elec-2', 'area-elec', 'sup-elec-2', 9900000, 'incl', '2026-09-24', '2026-10-24', 'לוח חשמל, 55 נקודות', 'open', NULL, NULL, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-plumb', 'area-plumb', 'sup-plumb', 3800000, 'excl', '2026-09-18', NULL, 'שירותים, מטבחון, ניקוז מזגנים', 'open', NULL, NULL, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-gypsum', 'area-gypsum', 'sup-gypsum', 6400000, 'excl', '2026-09-25', NULL, 'תקרה אקוסטית ומחיצות', 'open', NULL, NULL, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-tiles-1', 'area-tiles', 'sup-tiles-1', 11000000, 'excl', '2026-10-28', '2026-11-15', 'פורצלן 60×120, כולל חומר', 'open', NULL, NULL, '2026-10-28T09:00:00.000Z', 'נתוני דוגמה', '2026-10-28T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-tiles-2', 'area-tiles', 'sup-tiles-2', 12500000, 'excl', '2026-11-02', '2026-12-31', 'פורצלן 60×120, כולל חומר ופאנלים', 'open', NULL, NULL, '2026-11-02T09:00:00.000Z', 'נתוני דוגמה', '2026-11-02T09:00:00.000Z', 'נתוני דוגמה'),
-  ('q-carpentry', 'area-carpentry', 'sup-carpentry', 9600000, 'excl', '2026-11-03', '2026-12-03', 'דלפק קופה, מדפי תצוגה', 'open', NULL, NULL, '2026-11-03T09:00:00.000Z', 'נתוני דוגמה', '2026-11-03T09:00:00.000Z', 'נתוני דוגמה');
+INSERT INTO quotes (id, work_area_id, supplier_id, amount, vat_mode, received_date, valid_until, description, status, created_at, created_by, updated_at, updated_by) VALUES
+  ('q-elec-1', 'area-elec', 'sup-elec-1', 8200000, 'excl', '2026-09-20', '2026-10-20', 'לוח חשמל חדש, 60 נקודות, תאורת מסילה', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-elec-2', 'area-elec', 'sup-elec-2', 9900000, 'incl', '2026-09-24', '2026-10-24', 'לוח חשמל, 55 נקודות', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-plumb', 'area-plumb', 'sup-plumb', 3800000, 'excl', '2026-09-18', NULL, 'שירותים, מטבחון, ניקוז מזגנים', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-gypsum', 'area-gypsum', 'sup-gypsum', 6400000, 'excl', '2026-09-25', NULL, 'תקרה אקוסטית ומחיצות', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-tiles-1', 'area-tiles', 'sup-tiles-1', 11000000, 'excl', '2026-10-28', '2026-11-15', 'פורצלן 60×120, כולל חומר', 'open', '2026-10-28T09:00:00.000Z', 'נתוני דוגמה', '2026-10-28T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-tiles-2', 'area-tiles', 'sup-tiles-2', 12500000, 'excl', '2026-11-02', '2026-12-31', 'פורצלן 60×120, כולל חומר ופאנלים', 'open', '2026-11-02T09:00:00.000Z', 'נתוני דוגמה', '2026-11-02T09:00:00.000Z', 'נתוני דוגמה'),
+  ('q-carpentry', 'area-carpentry', 'sup-carpentry', 9600000, 'excl', '2026-11-03', '2026-12-03', 'דלפק קופה, מדפי תצוגה', 'open', '2026-11-03T09:00:00.000Z', 'נתוני דוגמה', '2026-11-03T09:00:00.000Z', 'נתוני דוגמה');
 
 INSERT INTO change_orders (id, work_area_id, description, amount, vat_mode, date, status, created_at, created_by, updated_at, updated_by) VALUES
   ('co-plumb-1', 'area-plumb', 'נקודת מים נוספת למטבחון', 450000, 'excl', '2026-10-15', 'approved', '2026-10-15T09:00:00.000Z', 'נתוני דוגמה', '2026-10-15T09:00:00.000Z', 'נתוני דוגמה'),
