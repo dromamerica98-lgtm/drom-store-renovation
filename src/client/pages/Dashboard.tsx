@@ -6,6 +6,7 @@ import { formatILS, formatNumber, formatPct } from '../../shared/money';
 import { toBasis } from '../../shared/vat';
 import { Chip, Empty, Icon, Meter, Money, PageHeader, Section, type IconName } from '../components/ui';
 import { todayISO, useData } from '../data';
+import { InstallBanner } from './Install';
 import { paymentTargetLink, paymentTargetName } from '../util';
 
 export function Dashboard() {
@@ -16,6 +17,7 @@ export function Dashboard() {
         title={data.settings.projectName}
         subtitle={`כל הסכומים ${VAT_BASIS_LABELS[data.settings.displayBasis]}`}
       />
+      <InstallBanner />
       <Hero s={s} />
       <div className="kpis">
         <Stat

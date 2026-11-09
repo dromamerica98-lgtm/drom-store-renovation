@@ -5,6 +5,7 @@ import { DataProvider } from './data';
 import { AreaPage, AreasPage } from './pages/Areas';
 import { Dashboard } from './pages/Dashboard';
 import { ExpensePage, ExpensesPage } from './pages/Expenses';
+import { InstallPage } from './pages/Install';
 import { PaymentsPage } from './pages/Payments';
 import { SettingsPage } from './pages/Settings';
 import { SuppliersPage } from './pages/Suppliers';
@@ -53,6 +54,7 @@ export function App() {
           <Route path="payments" element={<PaymentsPage />} />
           <Route path="suppliers" element={<SuppliersPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="install" element={<InstallPage />} />
           <Route path="*" element={<PageHeader title="הדף לא נמצא" back="/" />} />
         </Route>
       </Routes>

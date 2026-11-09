@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { VAT_BASIS_LABELS } from '../../shared/labels';
 import { agorotToInput, formatILS, parseShekels } from '../../shared/money';
 import type { VatBasis } from '../../shared/types';
@@ -94,6 +95,12 @@ export function SettingsPage() {
             {error}
           </p>
         )}
+        <Section title="התקנה במסך הבית">
+          <p className="hint">אפשר להתקין את האפליקציה כאייקון במסך הבית של האייפון או האנדרואיד, ולפתוח אותה במסך מלא.</p>
+          <Link to="/install" className="btn small install-link">
+            הוראות התקנה
+          </Link>
+        </Section>
         <div className="form-actions">
           <button type="submit" className="btn primary">
             שמירת ההגדרות

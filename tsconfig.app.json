@@ -2,11 +2,17 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -16,5 +22,11 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["src/client", "src/shared"]
+  "include": [
+    "src/client",
+    "src/shared"
+  ],
+  "exclude": [
+    "src/client/**/*.test.ts"
+  ]
 }
