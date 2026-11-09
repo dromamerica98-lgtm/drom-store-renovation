@@ -105,6 +105,8 @@ npx wrangler dev --config wrangler.deploy.json --var ACCESS_AUD:local-dev-aud
    - `ACCESS_TEAM_DOMAIN`: כתובת הצוות.
 4. **כתובות preview:** כבויות (`preview_urls: false`).
 
+**משך ההתחברות:** שבוע (168 שעות). אחרי שמתחברים פעם אחת בקוד מהמייל, הטלפון לא מבקש קוד חדש במשך שבוע. ההגדרה נמצאת גם במדיניות וגם באפליקציית ה־Access, וההגדרה במדיניות קובעת. אם טלפון אובד, אפשר לנתק את המשתמש מיד: ב־Zero Trust, בתפריט Team & Resources, פותחים את Users ובוחרים Revoke.
+
 **הוספה או הסרה של משתמשים:** ב־Zero Trust, בתפריט Access, פותחים את Policies, ואז את המדיניות `drom-store-renovation - approved users`. שם מוסיפים או מסירים כתובות מייל. לא צריך לפרוס מחדש.
 
 ## התקנה במסך הבית
