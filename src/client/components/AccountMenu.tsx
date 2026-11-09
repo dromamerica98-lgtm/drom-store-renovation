@@ -58,6 +58,12 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
             <Icon name="settings" />
             הגדרות
           </Link>
+          {data.user.isAdmin && (
+            <Link to="/activity" onClick={onClose}>
+              <Icon name="history" />
+              יומן שינויים
+            </Link>
+          )}
           <Link to="/install" onClick={onClose}>
             <Icon name="install" />
             התקנה במסך הבית

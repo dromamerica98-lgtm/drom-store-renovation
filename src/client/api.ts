@@ -1,3 +1,4 @@
+import type { AuditPage } from '../shared/audit';
 import type { Dataset } from '../shared/types';
 
 export type Entity = 'suppliers' | 'areas' | 'quotes' | 'change-orders' | 'expenses' | 'payments';
@@ -38,6 +39,14 @@ export const api = {
     return request<{ id: string }>('POST', `/quotes/${quoteId}/files`, form);
   },
   deleteFile: (id: string) => request('DELETE', `/files/${id}`),
+  audit: (params: { before?: number; actor?: string; entity?: string; others?: boolean }) => {
+    const q = new URLSearchParams({ limit: '100' });
+    if (params.before) q.set('before', String(params.before));
+    if (params.actor) q.set('actor', params.actor);
+    if (params.entity) q.set('entity', params.entity);
+    if (params.others) q.set('others', '1');
+    return request<AuditPage>('GET', `/audit?${q}`);
+  },
 };
 
 /** Address for viewing a file in the browser (Access cookies make it work for signed-in users only). */

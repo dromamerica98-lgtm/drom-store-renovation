@@ -1597,3 +1597,68 @@ input[type='file'] {
   background: var(--ink);
   color: var(--page);
 }
+
+/* ---------- Change history ---------- */
+
+.activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.activity-day {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.activity > li:first-child .activity-day {
+  margin-top: 0;
+}
+
+.activity-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.activity-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--accent-ink);
+}
+
+.activity-item.delete .activity-icon {
+  color: var(--critical-ink);
+}
+
+.activity-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.activity-title {
+  font-size: 15px;
+}
+
+.activity-details {
+  margin: 0;
+  padding-inline-start: 16px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}

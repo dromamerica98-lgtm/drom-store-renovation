@@ -20,41 +20,37 @@ export async function first<T>(db: D1Database, sql: string, ...params: unknown[]
 }
 
 /**
- * Inserts a row with a new id and audit columns.
+ * Builds an INSERT for a row with a new id and the created/updated columns.
  * `data` must come from a validated schema, so its keys are known column names.
  */
-export async function insert(db: D1Database, table: string, data: Row, user: string): Promise<string> {
+export function insertStatement(db: D1Database, table: string, data: Row, user: string): { id: string; stmt: D1PreparedStatement } {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const row: Row = { ...data, id, createdAt: now, createdBy: user, updatedAt: now, updatedBy: user };
   const keys = Object.keys(row);
-  await db
+  const stmt = db
     .prepare(`INSERT INTO ${table} (${keys.map(toSnake).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`)
-    .bind(...keys.map((k) => row[k] ?? null))
-    .run();
-  return id;
+    .bind(...keys.map((k) => row[k] ?? null));
+  return { id, stmt };
 }
 
-/** Updates the given columns and the audit columns. Returns false when the row does not exist. */
-export async function update(
+/** Builds an UPDATE of the given columns plus the updated columns. */
+export function updateStatement(
   db: D1Database,
   table: string,
   id: string | number,
   data: Row,
   user: string,
-): Promise<boolean> {
+): D1PreparedStatement {
   const row: Row = { ...data, updatedAt: new Date().toISOString(), updatedBy: user };
   const keys = Object.keys(row);
-  const result = await db
+  return db
     .prepare(`UPDATE ${table} SET ${keys.map((k) => `${toSnake(k)} = ?`).join(', ')} WHERE id = ?`)
-    .bind(...keys.map((k) => row[k] ?? null), id)
-    .run();
-  return result.meta.changes > 0;
+    .bind(...keys.map((k) => row[k] ?? null), id);
 }
 
-export async function remove(db: D1Database, table: string, id: string): Promise<boolean> {
-  const result = await db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run();
-  return result.meta.changes > 0;
+export function deleteStatement(db: D1Database, table: string, id: string): D1PreparedStatement {
+  return db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id);
 }
 
 export async function count(db: D1Database, sql: string, ...params: unknown[]): Promise<number> {

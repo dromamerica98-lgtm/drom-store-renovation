@@ -110,6 +110,12 @@ const ICONS = {
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" />
+      <path d="M3 3v5h5M12 7v5l3 2" />
+    </>
+  ),
   logout: (
     <>
       <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />

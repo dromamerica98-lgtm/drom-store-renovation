@@ -3,6 +3,7 @@ import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
 import { AccountMenu } from './components/AccountMenu';
 import { Icon, PageHeader, type IconName } from './components/ui';
 import { DataProvider } from './data';
+import { ActivityPage } from './pages/Activity';
 import { AreaPage, AreasPage } from './pages/Areas';
 import { Dashboard } from './pages/Dashboard';
 import { ExpensePage, ExpensesPage } from './pages/Expenses';
@@ -25,7 +26,7 @@ function Layout() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
-  const moreActive = pathname.startsWith('/settings') || pathname.startsWith('/install');
+  const moreActive = ['/settings', '/install', '/activity'].some((p) => pathname.startsWith(p));
   return (
     <div className="app">
       <nav className="nav" aria-label="ניווט ראשי">
@@ -67,6 +68,7 @@ export function App() {
           <Route path="suppliers" element={<SuppliersPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="install" element={<InstallPage />} />
+          <Route path="activity" element={<ActivityPage />} />
           <Route path="*" element={<PageHeader title="הדף לא נמצא" back="/" />} />
         </Route>
       </Routes>

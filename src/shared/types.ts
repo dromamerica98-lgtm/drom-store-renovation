@@ -132,5 +132,7 @@ export interface Dataset {
     email: string;
     /** Cloudflare Access team logout address; null in local development. */
     logoutUrl: string | null;
+    /** May read the change history (ADMIN_EMAILS). */
+    isAdmin: boolean;
   };
 }
