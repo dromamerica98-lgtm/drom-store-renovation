@@ -128,5 +128,9 @@ export interface Dataset {
   changeOrders: ChangeOrder[];
   expenses: Expense[];
   payments: Payment[];
-  user: { email: string };
+  user: {
+    email: string;
+    /** Cloudflare Access team logout address; null in local development. */
+    logoutUrl: string | null;
+  };
 }

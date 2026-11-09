@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
+import { AccountMenu } from './components/AccountMenu';
 import { Icon, PageHeader, type IconName } from './components/ui';
 import { DataProvider } from './data';
 import { AreaPage, AreasPage } from './pages/Areas';
@@ -16,14 +17,15 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/expenses', label: 'הוצאות', icon: 'expenses' },
   { to: '/payments', label: 'תשלומים', icon: 'payments' },
   { to: '/suppliers', label: 'ספקים', icon: 'suppliers' },
-  { to: '/settings', label: 'הגדרות', icon: 'settings' },
 ];
 
 function Layout() {
   const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+  const moreActive = pathname.startsWith('/settings') || pathname.startsWith('/install');
   return (
     <div className="app">
       <nav className="nav" aria-label="ניווט ראשי">
@@ -33,7 +35,17 @@ function Layout() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        <button
+          type="button"
+          className={`nav-link ${moreActive ? 'active' : ''}`}
+          aria-haspopup="dialog"
+          onClick={() => setMenuOpen(true)}
+        >
+          <Icon name="menu" />
+          <span>עוד</span>
+        </button>
       </nav>
+      {menuOpen && <AccountMenu onClose={() => setMenuOpen(false)} />}
       <main className="main">
         <Outlet />
       </main>

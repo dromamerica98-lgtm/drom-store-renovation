@@ -53,6 +53,22 @@ export function normalizeTeamDomain(value: string | undefined): string {
   return /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+/** The team-wide Access logout address, e.g. https://team.cloudflareaccess.com/cdn-cgi/access/logout. */
+export function accessLogoutUrl(teamDomain: string | undefined): string | null {
+  const domain = normalizeTeamDomain(teamDomain);
+  return domain ? `${domain}/cdn-cgi/access/logout` : null;
+}
+
+/** Cookies Access sets on the application's own hostname. */
+export const ACCESS_APP_COOKIES = ['CF_Authorization', 'CF_AppSession', 'CF_Binding'];
+
+/** Set-Cookie values that delete the Access cookies on this hostname. */
+export function expiredAccessCookies(): string[] {
+  return ACCESS_APP_COOKIES.map(
+    (name) => `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Secure; HttpOnly; SameSite=Lax`,
+  );
+}
+
 function normalizeEmail(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }

@@ -13,7 +13,7 @@ import type {
   Supplier,
   WorkArea,
 } from '../shared/types';
-import { accessAuth } from './access';
+import { accessAuth, accessLogoutUrl, expiredAccessCookies } from './access';
 import { all, count, first, insert, remove, update } from './db';
 import { contentDisposition, detectFileType, sanitizeFileName } from './files';
 import {
@@ -103,9 +103,25 @@ app.get('/data', async (c) => {
     changeOrders,
     expenses,
     payments,
-    user: { email: c.get('user') },
+    user: {
+      email: c.get('user'),
+      logoutUrl: import.meta.env.DEV ? null : accessLogoutUrl(c.env.ACCESS_TEAM_DOMAIN),
+    },
   };
   return c.json(data);
+});
+
+// ---------- Sign out ----------
+
+/**
+ * First step of signing out: deletes the Access cookie of this hostname, so the app stops
+ * being signed in right away. The browser then goes to the team logout address, which ends
+ * the Access session itself (see src/client/auth.ts).
+ */
+app.post('/logout', (c) => {
+  for (const cookie of expiredAccessCookies()) c.header('Set-Cookie', cookie, { append: true });
+  c.header('Cache-Control', 'no-store');
+  return c.json({ ok: true });
 });
 
 // ---------- Settings ----------

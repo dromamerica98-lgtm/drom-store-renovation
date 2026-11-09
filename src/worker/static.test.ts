@@ -74,6 +74,25 @@ describe('production entry', () => {
     expect(res.headers.get('Content-Type')).toContain('text/html');
   });
 
+  it('signs out only a signed-in user, deleting the Access cookies of this hostname', async () => {
+    const post = (c: ExecutionContext) =>
+      deployEntry.fetch(new Request('https://app.example/api/logout', { method: 'POST' }) as Parameters<typeof deployEntry.fetch>[0], env, c);
+    expect((await post(ctx())).status).toBe(401);
+
+    const access = { aud: 'prod-aud', getIdentity: async () => ({ email: 'a@example.com' }) };
+    const res = await post(ctx(access));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    const cookies = res.headers.getSetCookie();
+    for (const name of ['CF_Authorization', 'CF_AppSession', 'CF_Binding']) {
+      const cookie = cookies.find((c) => c.startsWith(`${name}=;`));
+      expect(cookie, name).toBeDefined();
+      expect(cookie).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+      expect(cookie).toContain('Max-Age=0');
+      expect(cookie).toContain('Path=/');
+    }
+  });
+
   it('routes /api to the API, which also requires an identity', async () => {
     const res = await fetchApp('/api/data', ctx());
     expect(res.status).toBe(401);

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { SignJWT, base64url, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { accessAuth, normalizeTeamDomain, type AccessContext, type AuthEnv } from './access';
+import { accessAuth, accessLogoutUrl, normalizeTeamDomain, type AccessContext, type AuthEnv } from './access';
 
 const TEAM = 'https://test-team.cloudflareaccess.com';
 const AUD = 'test-aud-tag';
@@ -147,5 +147,17 @@ describe('normalizeTeamDomain', () => {
     expect(normalizeTeamDomain('https://team.cloudflareaccess.com/')).toBe('https://team.cloudflareaccess.com');
     expect(normalizeTeamDomain('  ')).toBe('');
     expect(normalizeTeamDomain(undefined)).toBe('');
+  });
+});
+
+describe('accessLogoutUrl', () => {
+  it('builds the team logout address, or nothing without a team', () => {
+    expect(accessLogoutUrl('damp-bread-d7b5.cloudflareaccess.com')).toBe(
+      'https://damp-bread-d7b5.cloudflareaccess.com/cdn-cgi/access/logout',
+    );
+    expect(accessLogoutUrl('https://damp-bread-d7b5.cloudflareaccess.com/')).toBe(
+      'https://damp-bread-d7b5.cloudflareaccess.com/cdn-cgi/access/logout',
+    );
+    expect(accessLogoutUrl('')).toBeNull();
   });
 });

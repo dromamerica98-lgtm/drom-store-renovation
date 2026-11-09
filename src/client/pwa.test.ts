@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { buildLogoutUrl } from './auth';
 import { detectPlatform } from './install';
 
 const root = new URL('../../', import.meta.url).pathname;
@@ -68,5 +69,18 @@ describe('detectPlatform', () => {
     expect(detectPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15', 0)).toBe('desktop');
     expect(detectPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36')).toBe('android');
     expect(detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe('desktop');
+  });
+});
+
+describe('buildLogoutUrl', () => {
+  it('returns to the app root after the team logout', () => {
+    expect(
+      buildLogoutUrl(
+        'https://damp-bread-d7b5.cloudflareaccess.com/cdn-cgi/access/logout',
+        'https://drom-store-renovation.dromamerica98.workers.dev',
+      ),
+    ).toBe(
+      'https://damp-bread-d7b5.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=https%3A%2F%2Fdrom-store-renovation.dromamerica98.workers.dev%2F',
+    );
   });
 });

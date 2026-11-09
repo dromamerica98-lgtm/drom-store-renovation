@@ -125,6 +125,10 @@ p {
 }
 
 .nav-link {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1465,4 +1469,131 @@ input[type='file'] {
 
 .install-link {
   margin-top: 10px;
+}
+
+/* ---------- Account menu and sign-out ---------- */
+
+.account-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--page);
+  border: 1px solid var(--border);
+}
+
+.account-box > .icon {
+  width: 26px;
+  height: 26px;
+  color: var(--accent-ink);
+}
+
+.account-box > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.account-box .hint {
+  margin: 0;
+}
+
+.account-email {
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  margin: 12px 0;
+}
+
+.menu-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--grid);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.menu-list .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--ink-2);
+}
+
+.signout-button {
+  width: 100%;
+  color: var(--critical-ink);
+  border-color: var(--critical);
+}
+
+.confirm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--critical);
+  font-size: 15px;
+}
+
+.confirm-box p {
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.confirm-actions .btn {
+  flex: 1;
+}
+
+.btn.danger-solid {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: #fff;
+}
+
+.signout-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: var(--page);
+}
+
+.signout-screen .icon {
+  width: 40px;
+  height: 40px;
+  color: var(--accent-ink);
+}
+
+.signout-screen h2 {
+  font-size: 20px;
+}
+
+.signout-screen p {
+  color: var(--ink-2);
+  max-width: 320px;
+}
+
+.toast.info {
+  background: var(--ink);
+  color: var(--page);
 }

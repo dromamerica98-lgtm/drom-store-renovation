@@ -109,6 +109,19 @@ const ICONS = {
       <path d="M5 20h14" />
     </>
   ),
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  logout: (
+    <>
+      <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+      <path d="M10 16l-4-4 4-4M6 12h10" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof ICONS;

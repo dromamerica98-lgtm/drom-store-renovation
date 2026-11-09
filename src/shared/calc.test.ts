@@ -110,7 +110,7 @@ function dataset(overrides: Partial<Dataset> = {}): Dataset {
     changeOrders: [],
     expenses: [],
     payments: [],
-    user: { email: 'test@example.com' },
+    user: { email: 'test@example.com', logoutUrl: null },
     ...overrides,
   };
 }

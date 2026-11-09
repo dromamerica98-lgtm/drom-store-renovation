@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { computeProject, type ProjectSummary } from '../shared/calc';
 import type { Dataset } from '../shared/types';
 import { api, AuthError } from './api';
+import { consumeSignedOut } from './auth';
 
 interface DataContextValue {
   data: Dataset;
@@ -25,12 +26,19 @@ function message(e: unknown): string {
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Dataset | null>(null);
   const [loadError, setLoadError] = useState<{ message: string; auth: boolean } | null>(null);
-  const [toast, setToast] = useState<{ message: string; auth: boolean } | null>(null);
+  const [toast, setToast] = useState<{ message: string; auth: boolean; info?: boolean } | null>(null);
+  const firstLoad = useRef(true);
 
   const reload = useCallback(async () => {
     try {
-      setData(await api.data());
+      const loaded = await api.data();
+      setData(loaded);
       setLoadError(null);
+      if (firstLoad.current) {
+        firstLoad.current = false;
+        // Coming back from a sign-out: say who is signed in now.
+        if (consumeSignedOut()) setToast({ message: `התחברתם כ־${loaded.user.email}`, auth: false, info: true });
+      }
     } catch (e) {
       const error = { message: message(e), auth: e instanceof AuthError };
       // Before the first load this shows as the splash; afterwards (a background refresh) as a toast.
@@ -93,8 +101,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       {children}
       {toast && (
         <div
-          className="toast"
-          role="alert"
+          className={`toast ${toast.info ? 'info' : ''}`}
+          role={toast.info ? 'status' : 'alert'}
           onClick={() => (toast.auth ? window.location.reload() : setToast(null))}
         >
           {toast.message}
