@@ -116,3 +116,8 @@ export function areaDisplayNames(areas: { id: string; name: string; zone: Zone }
 export function duplicateAreaMessage(name: string, zone: Zone): string {
   return `התחום "${name.trim()}" כבר קיים באזור "${ZONE_LABELS[zone]}". אפשר לבחור אזור אחר, או לפתוח את התחום הקיים ולערוך אותו.`;
 }
+
+/** "תחום אחד" / "3 תחומים": Hebrew puts "one" after the noun. For masculine nouns. */
+export function countOf(n: number, singular: string, plural: string): string {
+  return n === 1 ? `${singular} אחד` : `${n} ${plural}`;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addDays, computeProject, computeZoneView, zoneBreakdown } from './calc';
-import { areaDisplayNames, normalizeAreaName } from './labels';
+import { areaDisplayNames, countOf, normalizeAreaName } from './labels';
 import { parseShekels } from './money';
 import type { ChangeOrder, Dataset, Expense, Payment, Quote, Settings, WorkArea } from './types';
 import { toBasis } from './vat';
@@ -359,6 +359,12 @@ describe('progress and alerts', () => {
 });
 
 describe('zones', () => {
+  it('counts in Hebrew: one area is "תחום אחד"', () => {
+    expect(countOf(1, 'תחום', 'תחומים')).toBe('תחום אחד');
+    expect(countOf(0, 'פריט', 'פריטים')).toBe('0 פריטים');
+    expect(countOf(21, 'תחום', 'תחומים')).toBe('21 תחומים');
+  });
+
   const zoned = () =>
     dataset({
       workAreas: [

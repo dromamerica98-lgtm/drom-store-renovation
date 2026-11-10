@@ -9,6 +9,7 @@ import {
   VAT_MODE_LABELS,
   ZONE_LABELS,
   ZONE_ORDER,
+  countOf,
 } from '../../shared/labels';
 import { formatILS, formatSignedILS } from '../../shared/money';
 import type { ChangeOrder, Payment, Quote } from '../../shared/types';
@@ -42,7 +43,7 @@ export function AreasPage() {
     <>
       <PageHeader
         title="תחומי עבודה"
-        subtitle={`${zone === 'all' ? '' : `${ZONE_LABELS[zone]} · `}${shown.length} תחומים · תחזית ${formatILS(forecast)}`}
+        subtitle={`${zone === 'all' ? '' : `${ZONE_LABELS[zone]} · `}${countOf(shown.length, 'תחום', 'תחומים')} · תחזית ${formatILS(forecast)}`}
         actions={<AddButton onClick={() => setAdding(true)}>תחום חדש</AddButton>}
       />
       <ZoneFilter value={zone} onChange={setZone} allLabel="כל האזורים" />
@@ -60,7 +61,7 @@ export function AreasPage() {
                 <i className={`zone-dot zone-${z}`} aria-hidden="true" />
                 {ZONE_LABELS[z]}
                 <span className="muted">
-                  {areas.length} תחומים · {formatILS(areas.reduce((t, a) => t + a.forecast, 0))}
+                  {countOf(areas.length, 'תחום', 'תחומים')} · {formatILS(areas.reduce((t, a) => t + a.forecast, 0))}
                 </span>
               </h2>
               <AreaCards areas={areas} />

@@ -10,7 +10,7 @@ import {
   type Totals,
   type ZoneView,
 } from '../../shared/calc';
-import { AREA_FORECAST_SOURCE_LABELS, AREA_STATUS_LABELS, VAT_BASIS_LABELS, ZONE_LABELS } from '../../shared/labels';
+import { AREA_FORECAST_SOURCE_LABELS, AREA_STATUS_LABELS, VAT_BASIS_LABELS, ZONE_LABELS, countOf } from '../../shared/labels';
 import { formatILS, formatNumber, formatPct } from '../../shared/money';
 import type { Payment, Zone } from '../../shared/types';
 import { toBasis } from '../../shared/vat';
@@ -156,7 +156,7 @@ function ZonesSection({ s, onZone }: { s: ProjectSummary; onZone: (z: ZoneChoice
                     {ZONE_LABELS[z.zone]}
                   </button>
                   <span className="cell-sub">
-                    {z.areaCount} תחומים · {formatPct(z.shareOfProject)} מהתחזית
+                    {countOf(z.areaCount, 'תחום', 'תחומים')} · {formatPct(z.shareOfProject)} מהתחזית
                   </span>
                 </td>
                 <td className="n num">{formatNumber(z.forecast)}</td>
@@ -171,7 +171,7 @@ function ZonesSection({ s, onZone }: { s: ProjectSummary; onZone: (z: ZoneChoice
                   <i className="zone-dot zone-general" aria-hidden="true" />
                   הוצאות כלליות
                 </Link>
-                <span className="cell-sub">לכל הפרויקט · {b.general.count} פריטים</span>
+                <span className="cell-sub">לכל הפרויקט · {countOf(b.general.count, 'פריט', 'פריטים')}</span>
               </td>
               <td className="n num">{formatNumber(b.general.forecast)}</td>
               <td className="n num">{formatNumber(b.general.paid)}</td>
@@ -261,7 +261,7 @@ function ZoneDashboard({ v, onAll }: { v: ZoneView; onAll: () => void }) {
         </div>
         <div className="hero-value">{formatILS(v.forecast)}</div>
         <div className="hero-sub">
-          {formatPct(v.shareOfProject)} מתחזית כל הפרויקט · {v.areaCount} תחומים
+          {formatPct(v.shareOfProject)} מתחזית כל הפרויקט · {countOf(v.areaCount, 'תחום', 'תחומים')}
         </div>
       </section>
       <div className="kpis">
@@ -476,7 +476,7 @@ function AreasTable({
                     <Link to="/expenses" className="cell-title">
                       הוצאות כלליות
                     </Link>
-                    <span className="cell-sub">{general.count} פריטים</span>
+                    <span className="cell-sub">{countOf(general.count, 'פריט', 'פריטים')}</span>
                   </td>
                   <td />
                   <td className="n num">{formatNumber(general.forecast)}</td>
