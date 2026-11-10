@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { formatDate } from '../../shared/calc';
+import { formatDate, type AreaCalc } from '../../shared/calc';
 import {
   AREA_FORECAST_SOURCE_LABELS,
   AREA_STATUS_LABELS,
   CHANGE_ORDER_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
   VAT_MODE_LABELS,
+  ZONE_LABELS,
+  ZONE_ORDER,
 } from '../../shared/labels';
 import { formatILS, formatSignedILS } from '../../shared/money';
 import type { ChangeOrder, Payment, Quote } from '../../shared/types';
@@ -25,55 +27,88 @@ import {
   Section,
 } from '../components/ui';
 import { QuoteFiles } from '../components/QuoteFiles';
+import { useZoneFilter, ZoneFilter } from '../components/ZoneFilter';
 import { useData } from '../data';
 import { AreaForm, ChangeOrderForm, PaymentForm, QuoteForm } from '../forms';
 import { supplierName } from '../util';
 
 export function AreasPage() {
-  const { data, summary } = useData();
+  const { summary } = useData();
   const [adding, setAdding] = useState(false);
+  const [zone, setZone] = useZoneFilter();
+  const shown = zone === 'all' ? summary.areas : summary.areas.filter((a) => a.area.zone === zone);
+  const forecast = shown.reduce((t, a) => t + a.forecast, 0);
   return (
     <>
       <PageHeader
         title="תחומי עבודה"
-        subtitle={`${summary.areas.length} תחומים · תחזית ${formatILS(summary.forecastAreas)}`}
+        subtitle={`${zone === 'all' ? '' : `${ZONE_LABELS[zone]} · `}${shown.length} תחומים · תחזית ${formatILS(forecast)}`}
         actions={<AddButton onClick={() => setAdding(true)}>תחום חדש</AddButton>}
       />
+      <ZoneFilter value={zone} onChange={setZone} allLabel="כל האזורים" />
       {summary.areas.length === 0 ? (
         <section className="card">
           <Empty>עוד לא הוגדרו תחומי עבודה. לדוגמה: חשמל, אינסטלציה, ריצוף, מיזוג.</Empty>
         </section>
+      ) : zone === 'all' ? (
+        ZONE_ORDER.map((z) => {
+          const areas = summary.areas.filter((a) => a.area.zone === z);
+          if (!areas.length) return null;
+          return (
+            <section key={z} className="zone-group">
+              <h2 className="zone-heading">
+                <i className={`zone-dot zone-${z}`} aria-hidden="true" />
+                {ZONE_LABELS[z]}
+                <span className="muted">
+                  {areas.length} תחומים · {formatILS(areas.reduce((t, a) => t + a.forecast, 0))}
+                </span>
+              </h2>
+              <AreaCards areas={areas} />
+            </section>
+          );
+        })
+      ) : shown.length === 0 ? (
+        <section className="card">
+          <Empty>אין עדיין תחומים ב{ZONE_LABELS[zone]}. הוסיפו תחום עם "תחום חדש".</Empty>
+        </section>
       ) : (
-        <ul className="cards">
-          {summary.areas.map((a) => {
-            const supplierId = a.selectedQuote?.supplierId;
-            return (
-              <li key={a.area.id}>
-                <Link to={`/areas/${a.area.id}`} className="card area-card">
-                  <div className="area-card-head">
-                    <span className="area-name">{a.area.name}</span>
-                    <Chip>{AREA_STATUS_LABELS[a.area.status]}</Chip>
-                  </div>
-                  <div className="area-card-sub">
-                    {supplierId ? `ספק: ${supplierName(data, supplierId)}` : AREA_FORECAST_SOURCE_LABELS[a.forecastSource]}
-                  </div>
-                  <div className="progress-row">
-                    <Meter value={a.area.progress} label={`התקדמות ${a.area.name}`} />
-                    <span className="num">{a.area.progress}%</span>
-                  </div>
-                  <div className="figures">
-                    <Figure label="תחזית" value={<Money value={a.forecast} />} />
-                    <Figure label="שולם" value={<Money value={a.paid} />} />
-                    <Figure label="נותר" value={<Money value={a.remaining} />} />
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <AreaCards areas={shown} />
       )}
-      {adding && <AreaForm onClose={() => setAdding(false)} />}
+      {adding && <AreaForm defaultZone={zone === 'all' ? undefined : zone} onClose={() => setAdding(false)} />}
     </>
+  );
+}
+
+function AreaCards({ areas }: { areas: AreaCalc[] }) {
+  const { data } = useData();
+  return (
+    <ul className="cards">
+      {areas.map((a) => {
+        const supplierId = a.selectedQuote?.supplierId;
+        return (
+          <li key={a.area.id}>
+            <Link to={`/areas/${a.area.id}`} className="card area-card">
+              <div className="area-card-head">
+                <span className="area-name">{a.area.name}</span>
+                <Chip>{AREA_STATUS_LABELS[a.area.status]}</Chip>
+              </div>
+              <div className="area-card-sub">
+                {supplierId ? `ספק: ${supplierName(data, supplierId)}` : AREA_FORECAST_SOURCE_LABELS[a.forecastSource]}
+              </div>
+              <div className="progress-row">
+                <Meter value={a.area.progress} label={`התקדמות ${a.area.name}`} />
+                <span className="num">{a.area.progress}%</span>
+              </div>
+              <div className="figures">
+                <Figure label="תחזית" value={<Money value={a.forecast} />} />
+                <Figure label="שולם" value={<Money value={a.paid} />} />
+                <Figure label="נותר" value={<Money value={a.remaining} />} />
+              </div>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -117,7 +152,15 @@ export function AreaPage() {
       <PageHeader
         back="/areas"
         title={area.name}
-        subtitle={<Chip>{AREA_STATUS_LABELS[area.status]}</Chip>}
+        subtitle={
+          <span className="chips-inline">
+            <Chip>
+              <i className={`zone-dot zone-${area.zone}`} aria-hidden="true" />
+              {ZONE_LABELS[area.zone]}
+            </Chip>
+            <Chip>{AREA_STATUS_LABELS[area.status]}</Chip>
+          </span>
+        }
         actions={
           <>
             <IconButton icon="edit" label="עריכת התחום" onClick={() => setEditing({ kind: 'area' })} />
@@ -271,6 +314,7 @@ function ProgressEditor({ areaId, progress, paidPct }: { areaId: string; progres
     void run(() =>
       api.update('areas', area.id, {
         name: area.name,
+        zone: area.zone,
         status,
         progress: value,
         estimateAmount: area.estimateAmount,

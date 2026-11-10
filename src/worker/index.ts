@@ -15,7 +15,8 @@ import type {
 } from '../shared/types';
 import { accessAuth, accessLogoutUrl, expiredAccessCookies } from './access';
 import type { AuditEntity } from '../shared/audit';
-import { auditStatement, diff, lookupNames, paymentLabel, snapshot, type AuditRecord } from './audit';
+import { duplicateAreaMessage } from '../shared/labels';
+import { areaAuditLabel, auditStatement, diff, lookupNames, paymentLabel, snapshot, type AuditRecord } from './audit';
 import { all, count, deleteStatement, first, insertStatement, updateStatement } from './db';
 import { contentDisposition, detectFileType, sanitizeFileName } from './files';
 import {
@@ -29,6 +30,7 @@ import {
   settingsSchema,
   supplierSchema,
   workAreaSchema,
+  workAreaUpdateSchema,
 } from './schemas';
 
 type AppEnv = { Bindings: Env; Variables: { user: string } };
@@ -144,7 +146,27 @@ function isAdmin(c: Ctx): boolean {
 /** Runs the statements and their audit rows as one transaction. */
 async function commit(c: Ctx, statements: D1PreparedStatement[], records: AuditRecord[]) {
   const user = c.get('user');
-  return c.env.DB.batch([...statements, ...records.map((r) => auditStatement(c.env.DB, user, r))]);
+  try {
+    return await c.env.DB.batch([...statements, ...records.map((r) => auditStatement(c.env.DB, user, r))]);
+  } catch (e) {
+    // Safety net for two people adding the same area at the same moment (unique zone + name).
+    if (e instanceof Error && e.message.includes('UNIQUE constraint failed: work_areas')) {
+      conflict('כבר קיים תחום בשם הזה באותו אזור. בחרו אזור אחר או שם אחר.');
+    }
+    throw e;
+  }
+}
+
+/** The same work area name may appear in several zones, but only once in each zone. */
+async function assertUniqueArea(c: Ctx, name: string, zone: WorkArea['zone'], exceptId = '') {
+  const clash = await first<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM work_areas WHERE zone = ? AND lower(name) = lower(?) AND id <> ?',
+    zone,
+    name,
+    exceptId,
+  );
+  if (clash) conflict(duplicateAreaMessage(name, zone));
 }
 
 /** An update record, or nothing when no field actually changed. */
@@ -242,20 +264,22 @@ app.delete('/suppliers/:id', async (c) => {
 
 app.post('/areas', async (c) => {
   const data = await body(c, workAreaSchema);
+  await assertUniqueArea(c, data.name, data.zone);
   if (!data.sortOrder) {
     data.sortOrder = 1 + (await count(c.env.DB, 'SELECT COALESCE(MAX(sort_order), 0) AS n FROM work_areas'));
   }
   const { id, stmt } = insertStatement(c.env.DB, 'work_areas', data, c.get('user'));
-  await commit(c, [stmt], [{ action: 'create', entity: 'work_area', entityId: id, label: data.name, changes: snapshot(data) }]);
+  await commit(c, [stmt], [{ action: 'create', entity: 'work_area', entityId: id, label: areaAuditLabel(data), changes: snapshot(data) }]);
   return c.json({ id }, 201);
 });
 
 /** Edits, including progress and status. */
 app.put('/areas/:id', async (c) => {
   const id = c.req.param('id');
-  const data = await body(c, workAreaSchema);
+  const data = await body(c, workAreaUpdateSchema);
   const before = await existing(c, 'work_areas', id);
-  await commit(c, [updateStatement(c.env.DB, 'work_areas', id, data, c.get('user'))], updated('work_area', id, data.name, before, data));
+  await assertUniqueArea(c, data.name, data.zone, id);
+  await commit(c, [updateStatement(c.env.DB, 'work_areas', id, data, c.get('user'))], updated('work_area', id, areaAuditLabel(data), before, data));
   return c.json({ ok: true });
 });
 
@@ -273,7 +297,7 @@ app.delete('/areas/:id', async (c) => {
     : '';
   // Quotes, their file rows and change orders are removed by ON DELETE CASCADE.
   await commit(c, [deleteStatement(c.env.DB, 'work_areas', id)], [
-    { action: 'delete', entity: 'work_area', entityId: id, label: String(before.name), changes: { ...snapshot(before), cascade } },
+    { action: 'delete', entity: 'work_area', entityId: id, label: areaAuditLabel(before), changes: { ...snapshot(before), cascade } },
   ]);
   await deleteObjects(c, keys);
   return c.json({ ok: true });
@@ -296,7 +320,7 @@ app.post('/areas/:id/selection', async (c) => {
   }
   const after = { selectedQuoteId: quoteId, status };
   const refs = await lookupNames(c.env.DB, { quotes: [area.selectedQuoteId, quoteId] });
-  await commit(c, [updateStatement(c.env.DB, 'work_areas', areaId, after, c.get('user'))], updated('work_area', areaId, area.name, area, after, refs));
+  await commit(c, [updateStatement(c.env.DB, 'work_areas', areaId, after, c.get('user'))], updated('work_area', areaId, areaAuditLabel(area), area, after, refs));
   return c.json({ ok: true });
 });
 
@@ -319,7 +343,7 @@ app.post('/quotes', async (c) => {
   if (area.status === 'not_started') {
     const after = { status: 'collecting_quotes' };
     statements.push(updateStatement(c.env.DB, 'work_areas', data.workAreaId, after, user));
-    records.push(...updated('work_area', data.workAreaId, String(area.name), area, after));
+    records.push(...updated('work_area', data.workAreaId, areaAuditLabel(area), area, after));
   }
   await commit(c, statements, records);
   return c.json({ id }, 201);
@@ -369,7 +393,7 @@ async function clearSelection(c: Ctx, quoteId: string, statements: D1PreparedSta
   for (const area of areas) {
     const after = { selectedQuoteId: null, status: area.status === 'supplier_selected' ? 'collecting_quotes' : area.status };
     statements.push(updateStatement(c.env.DB, 'work_areas', area.id, after, c.get('user')));
-    records.push(...updated('work_area', area.id, area.name, area, after, refs));
+    records.push(...updated('work_area', area.id, areaAuditLabel(area), area, after, refs));
   }
 }
 

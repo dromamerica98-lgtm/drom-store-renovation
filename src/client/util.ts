@@ -1,8 +1,22 @@
-import type { Dataset, Payment } from '../shared/types';
+import { areaDisplayNames } from '../shared/labels';
+import type { Dataset, Payment, WorkArea } from '../shared/types';
+
+const namesCache = new WeakMap<WorkArea[], Map<string, string>>();
+
+/** Area names as shown on screen; the zone is added when a name exists in several zones. */
+export function areaName(data: Dataset, areaId: string | null | undefined): string | undefined {
+  if (!areaId) return undefined;
+  let names = namesCache.get(data.workAreas);
+  if (!names) {
+    names = areaDisplayNames(data.workAreas);
+    namesCache.set(data.workAreas, names);
+  }
+  return names.get(areaId);
+}
 
 /** Name of what a payment is for (work area or general expense). */
 export function paymentTargetName(data: Dataset, p: Payment): string {
-  if (p.workAreaId) return data.workAreas.find((a) => a.id === p.workAreaId)?.name ?? 'תחום שנמחק';
+  if (p.workAreaId) return areaName(data, p.workAreaId) ?? 'תחום שנמחק';
   return data.expenses.find((e) => e.id === p.expenseId)?.description ?? 'הוצאה שנמחקה';
 }
 

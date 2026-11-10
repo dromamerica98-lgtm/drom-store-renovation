@@ -5,6 +5,9 @@ export type VatMode = 'incl' | 'excl' | 'exempt';
 /** How the budget and the reports are shown. */
 export type VatBasis = 'incl' | 'excl';
 
+/** The parts of the renovation: the store, the office/warehouse and the exterior closure. */
+export type Zone = 'store' | 'office_warehouse' | 'exterior';
+
 export type AreaStatus =
   | 'not_started'
   | 'collecting_quotes'
@@ -49,6 +52,8 @@ export interface Supplier extends Audit {
 export interface WorkArea extends Audit {
   id: string;
   name: string;
+  /** Required; existing areas default to 'store'. Name is unique within a zone. */
+  zone: Zone;
   status: AreaStatus;
   /** 0–100, entered manually. */
   progress: number;

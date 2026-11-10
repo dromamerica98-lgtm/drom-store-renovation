@@ -8,6 +8,7 @@ import {
   QUOTE_STATUS_LABELS,
   VAT_BASIS_LABELS,
   VAT_MODE_LABELS,
+  ZONE_LABELS,
 } from './labels';
 import { formatFileSize } from './files';
 import { formatILS } from './money';
@@ -106,6 +107,7 @@ const FIELDS: Record<AuditEntity, Record<string, FieldSpec>> = {
   },
   work_area: {
     name: F('שם'),
+    zone: F('אזור', { labels: ZONE_LABELS }),
     status: F('סטטוס', { labels: AREA_STATUS_LABELS }),
     progress: F('התקדמות', 'pct'),
     selectedQuoteId: F('הצעה נבחרת', 'ref'),
@@ -163,7 +165,7 @@ const FIELDS: Record<AuditEntity, Record<string, FieldSpec>> = {
 const SUMMARY_FIELDS: Record<AuditEntity, string[]> = {
   settings: ['projectName', 'totalBudget', 'reserveAmount'],
   supplier: ['phone'],
-  work_area: ['status', 'estimateAmount'],
+  work_area: ['zone', 'status', 'estimateAmount'],
   quote: ['amount', 'vatMode', 'validUntil'],
   quote_file: ['size'],
   change_order: ['amount', 'status'],

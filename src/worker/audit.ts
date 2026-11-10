@@ -1,4 +1,5 @@
 import type { AuditAction, AuditEntity } from '../shared/audit';
+import { ZONE_LABELS, isZone } from '../shared/labels';
 import { formatILS } from '../shared/money';
 import { all } from './db';
 
@@ -62,14 +63,34 @@ export async function lookupNames(
     const rows = await all<{ id: string; name: string }>(db, sql.replace('?', values.map(() => '?').join(', ')), ...values);
     for (const r of rows) names[r.id] = r.name;
   };
-  await query('SELECT id, name FROM work_areas WHERE id IN (?)', list(ids.areas));
+  const areaIds = list(ids.areas);
+  if (areaIds.length) {
+    const rows = await all<{ id: string; name: string; zone: string }>(
+      db,
+      `SELECT id, name, zone FROM work_areas WHERE id IN (${areaIds.map(() => '?').join(', ')})`,
+      ...areaIds,
+    );
+    for (const r of rows) names[r.id] = areaAuditLabel(r);
+  }
   await query('SELECT id, name FROM suppliers WHERE id IN (?)', list(ids.suppliers));
   await query('SELECT id, description AS name FROM expenses WHERE id IN (?)', list(ids.expenses));
-  await query(
-    'SELECT q.id, s.name || \' · \' || a.name AS name FROM quotes q JOIN suppliers s ON s.id = q.supplier_id JOIN work_areas a ON a.id = q.work_area_id WHERE q.id IN (?)',
-    list(ids.quotes),
-  );
+  const quoteIds = list(ids.quotes);
+  if (quoteIds.length) {
+    const rows = await all<{ id: string; supplier: string; name: string; zone: string }>(
+      db,
+      `SELECT q.id, s.name AS supplier, a.name, a.zone FROM quotes q
+         JOIN suppliers s ON s.id = q.supplier_id JOIN work_areas a ON a.id = q.work_area_id
+        WHERE q.id IN (${quoteIds.map(() => '?').join(', ')})`,
+      ...quoteIds,
+    );
+    for (const r of rows) names[r.id] = `${r.supplier} · ${areaAuditLabel(r)}`;
+  }
   return names;
+}
+
+/** How a work area is named in the history: "חשמל · משרד מחסן". */
+export function areaAuditLabel(area: { name?: unknown; zone?: unknown }): string {
+  return isZone(area.zone) ? `${String(area.name)} · ${ZONE_LABELS[area.zone]}` : String(area.name);
 }
 
 export function paymentLabel(p: Record<string, unknown>, names: Record<string, string>): string {

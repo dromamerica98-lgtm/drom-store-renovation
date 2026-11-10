@@ -5,6 +5,7 @@ z.config(z.locales.he());
 
 const vatMode = z.enum(['incl', 'excl', 'exempt']);
 const vatBasis = z.enum(['incl', 'excl']);
+const zoneEnum = z.enum(['store', 'office_warehouse', 'exterior']);
 /** Integer agorot. */
 const amount = z.number().int().min(-1e13).max(1e13);
 const positiveAmount = amount.min(0);
@@ -38,7 +39,9 @@ export const supplierSchema = z.object({
 });
 
 export const workAreaSchema = z.object({
-  name: text,
+  // Single spaces, so "כיבוי  אש" and "כיבוי אש" count as the same name.
+  name: text.transform((s) => s.replace(/\s+/g, ' ')),
+  zone: zoneEnum.default('store'),
   status: z.enum(['not_started', 'collecting_quotes', 'supplier_selected', 'in_progress', 'done']),
   progress: z.number().int().min(0).max(100),
   estimateAmount: positiveAmount.nullable(),
@@ -46,6 +49,9 @@ export const workAreaSchema = z.object({
   notes: optText,
   sortOrder: z.number().int().default(0),
 });
+
+/** Editing an existing area must say its zone, so a partial update can never move it to the store. */
+export const workAreaUpdateSchema = workAreaSchema.extend({ zone: zoneEnum });
 
 export const selectionSchema = z.object({ quoteId: id.nullable() });
 

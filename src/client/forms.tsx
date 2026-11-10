@@ -6,6 +6,11 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   QUOTE_STATUS_LABELS,
+  DEFAULT_ZONE,
+  ZONE_LABELS,
+  ZONE_ORDER,
+  duplicateAreaMessage,
+  normalizeAreaName,
 } from '../shared/labels';
 import { agorotToInput, parseShekels } from '../shared/money';
 import type {
@@ -22,6 +27,7 @@ import type {
   Supplier,
   VatMode,
   WorkArea,
+  Zone,
 } from '../shared/types';
 import { QUOTE_FILE_ACCEPT, formatFileSize } from '../shared/files';
 import { api } from './api';
@@ -96,9 +102,11 @@ function useSubmit(onClose: () => void) {
 
 // ---------- Work area ----------
 
-export function AreaForm({ area, onClose }: { area?: WorkArea; onClose: () => void }) {
+export function AreaForm({ area, defaultZone, onClose }: { area?: WorkArea; defaultZone?: Zone; onClose: () => void }) {
+  const { data } = useData();
   const [f, setF] = useState({
     name: area?.name ?? '',
+    zone: area?.zone ?? defaultZone ?? DEFAULT_ZONE,
     status: area?.status ?? ('not_started' as AreaStatus),
     progress: String(area?.progress ?? 0),
     estimate: agorotToInput(area?.estimateAmount),
@@ -111,12 +119,19 @@ export function AreaForm({ area, onClose }: { area?: WorkArea; onClose: () => vo
   const onSubmit = () =>
     validated(
       () => {
+        const name = requireText('שם התחום', f.name).replace(/\s+/g, ' ');
+        // The same work area may exist in several zones, but only once in each zone.
+        const clash = data.workAreas.find(
+          (a) => a.id !== area?.id && a.zone === f.zone && normalizeAreaName(a.name) === normalizeAreaName(name),
+        );
+        if (clash) throw new FormError(duplicateAreaMessage(name, f.zone));
         const progress = Number(f.progress);
         if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
           throw new FormError('אחוז התקדמות חייב להיות מספר שלם בין 0 ל־100');
         }
         return {
-          name: requireText('שם התחום', f.name),
+          name,
+          zone: f.zone,
           status: f.status,
           progress,
           estimateAmount: amountOf('הערכת עלות', f.estimate),
@@ -131,6 +146,13 @@ export function AreaForm({ area, onClose }: { area?: WorkArea; onClose: () => vo
   return (
     <Sheet title={area ? 'עריכת תחום עבודה' : 'תחום עבודה חדש'} onClose={onClose} onSubmit={onSubmit} busy={busy} error={error}>
       <TextInput label="שם התחום" value={f.name} onChange={set('name')} required />
+      <Select
+        label="אזור בפרויקט *"
+        value={f.zone}
+        options={ZONE_LABELS}
+        onChange={set('zone')}
+        hint="אפשר להוסיף את אותו תחום, למשל חשמל, גם באזור אחר."
+      />
       <Select
         label="סטטוס"
         value={f.status}
@@ -435,15 +457,20 @@ export function PaymentForm({
         {(id) => (
           <select id={id} value={f.target} onChange={(e) => set('target')(e.target.value)}>
             {f.target === '' && <option value="">בחרו…</option>}
-            {data.workAreas.length > 0 && (
-              <optgroup label="תחומי עבודה">
-                {data.workAreas.map((a) => (
-                  <option key={a.id} value={`area:${a.id}`}>
-                    {a.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
+            {ZONE_ORDER.map((zone) => {
+              const areas = data.workAreas.filter((a) => a.zone === zone);
+              return (
+                areas.length > 0 && (
+                  <optgroup key={zone} label={`תחומים · ${ZONE_LABELS[zone]}`}>
+                    {areas.map((a) => (
+                      <option key={a.id} value={`area:${a.id}`}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              );
+            })}
             {data.expenses.length > 0 && (
               <optgroup label="הוצאות כלליות">
                 {data.expenses.map((e) => (

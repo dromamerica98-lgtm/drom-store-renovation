@@ -29,6 +29,14 @@ describe('describeEntry', () => {
     ]);
   });
 
+  it('shows the zone of a new area and a move between zones', () => {
+    const added = describeEntry(entry({ action: 'create', label: 'חשמל · משרד מחסן', changes: { name: 'חשמל', zone: 'office_warehouse', status: 'not_started' } }));
+    expect(added.title).toBe('נוסף תחום');
+    expect(added.details).toEqual(['אזור: משרד מחסן', 'סטטוס: טרם התחיל']);
+    const moved = describeEntry(entry({ changes: { zone: ['store', 'exterior'] } }));
+    expect(moved.details).toEqual(['אזור: מ־חנות ל־סגירת חוץ']);
+  });
+
   it('names referenced items from the refs stored with the entry', () => {
     const d = describeEntry(entry({ changes: { selectedQuoteId: [null, 'q1'] }, refs: { q1: 'א.ב. חשמל · חשמל ותאורה' } }));
     expect(d.details).toEqual(['הצעה נבחרת: מ־ריק ל־א.ב. חשמל · חשמל ותאורה']);

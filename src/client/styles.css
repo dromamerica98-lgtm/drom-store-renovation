@@ -21,6 +21,11 @@
   --warning-ink: #8a5a00;
   --critical: #d03b3b;
   --critical-ink: #b42f2f;
+  /* Zones: categorical slots 1–3 of the validated palette; general expenses in neutral gray. */
+  --zone-store: #2a78d6;
+  --zone-office: #eb6834;
+  --zone-exterior: #1baf7a;
+  --zone-general: #c3c2b7;
   --radius: 14px;
   --nav-h: 64px;
   font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
@@ -49,6 +54,10 @@
     --good-ink: #0ca30c;
     --warning-ink: #fab219;
     --critical-ink: #e66767;
+    --zone-store: #3987e5;
+    --zone-office: #d95926;
+    --zone-exterior: #199e70;
+    --zone-general: #6f6d68;
   }
 }
 
@@ -672,8 +681,9 @@ p {
   .table .mini-progress {
     min-width: 64px;
   }
-  .table th:nth-child(2),
-  .table td:nth-child(2) {
+  /* The progress column of the areas table (the zone table hides its own progress column). */
+  .areas-table th:nth-child(2),
+  .areas-table td:nth-child(2) {
     display: none;
   }
 }
@@ -1661,4 +1671,156 @@ input[type='file'] {
   gap: 4px 10px;
   font-size: 12.5px;
   color: var(--muted);
+}
+
+/* ---------- Zones ---------- */
+
+.zone-store { --zone: var(--zone-store); }
+.zone-office_warehouse { --zone: var(--zone-office); }
+.zone-exterior { --zone: var(--zone-exterior); }
+.zone-general { --zone: var(--zone-general); }
+
+.zone-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--zone);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* All four choices visible at phone width: an even grid instead of a scrolling row. */
+.zone-filter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  overflow: visible;
+  margin-top: -2px;
+}
+
+.zone-filter button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 13.5px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+@media (min-width: 700px) {
+  .zone-filter {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .zone-filter button {
+    padding: 0 14px;
+    font-size: 14px;
+  }
+}
+
+.zone-filter button.active .zone-dot {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Thin segmented bar of the forecast by zone (2px surface gaps between parts). */
+.zone-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--grid);
+  margin-bottom: 12px;
+}
+
+.zone-bar .seg {
+  height: 100%;
+  background: var(--zone);
+}
+
+.zone-bar .seg + .seg {
+  border-inline-start: 2px solid var(--surface);
+}
+
+.zone-table .cell-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: start;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .zone-table .col-progress {
+    display: none;
+  }
+}
+
+.zone-hero {
+  border-inline-start: 4px solid var(--zone);
+}
+
+.zone-hero .hero-label {
+  color: var(--ink-2);
+}
+
+.zone-border-store { --zone: var(--zone-store); }
+.zone-border-office_warehouse { --zone: var(--zone-office); }
+.zone-border-exterior { --zone: var(--zone-exterior); }
+
+.zone-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.zone-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.zone-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.zone-heading .muted {
+  font-size: 13.5px;
+  font-weight: 400;
+}
+
+.chips-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip .zone-dot {
+  width: 8px;
+  height: 8px;
 }

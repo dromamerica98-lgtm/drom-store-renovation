@@ -1,6 +1,7 @@
 -- Sample data for local development: npm run db:seed:local
 -- Replaces all existing data. Amounts are in agorot.
 
+DELETE FROM audit_log;
 DELETE FROM payments;
 DELETE FROM change_orders;
 DELETE FROM quote_files;
@@ -38,6 +39,13 @@ INSERT INTO work_areas (id, name, status, progress, estimate_amount, estimate_va
   ('area-carpentry', 'נגרות ודלפקים', 'collecting_quotes', 0, 9000000, 'excl', NULL, NULL, 6, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
   ('area-signs', 'שילוט', 'not_started', 0, NULL, 'excl', NULL, NULL, 7, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה');
 
+-- Areas outside the store (zone defaults to 'store' above). "חשמל" exists in two zones on purpose.
+INSERT INTO work_areas (id, name, zone, status, progress, estimate_amount, estimate_vat, selected_quote_id, notes, sort_order, created_at, created_by, updated_at, updated_by) VALUES
+  ('area-office-elec', 'חשמל', 'office_warehouse', 'collecting_quotes', 0, 1800000, 'excl', NULL, NULL, 8, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('area-office-build', 'בינוי משרד ומחסן', 'office_warehouse', 'in_progress', 30, 4500000, 'excl', NULL, NULL, 9, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('area-ext-cladding', 'חיפוי חזית', 'exterior', 'not_started', 0, 6000000, 'excl', NULL, NULL, 10, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('area-ext-elec', 'חשמל', 'exterior', 'not_started', 0, 900000, 'excl', NULL, NULL, 11, '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה');
+
 INSERT INTO quotes (id, work_area_id, supplier_id, amount, vat_mode, received_date, valid_until, description, status, created_at, created_by, updated_at, updated_by) VALUES
   ('q-elec-1', 'area-elec', 'sup-elec-1', 8200000, 'excl', '2026-09-20', '2026-10-20', 'לוח חשמל חדש, 60 נקודות, תאורת מסילה', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
   ('q-elec-2', 'area-elec', 'sup-elec-2', 9900000, 'incl', '2026-09-24', '2026-10-24', 'לוח חשמל, 55 נקודות', 'open', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה', '2026-10-01T09:00:00.000Z', 'נתוני דוגמה'),
@@ -66,4 +74,5 @@ INSERT INTO payments (id, work_area_id, expense_id, amount, vat_mode, date, stat
   ('pay-gypsum-1', 'area-gypsum', NULL, 3000000, 'incl', '2026-10-20', 'paid', 'transfer', '1035', 'מקדמה', '2026-10-20T09:00:00.000Z', 'נתוני דוגמה', '2026-10-20T09:00:00.000Z', 'נתוני דוגמה'),
   ('pay-permit', NULL, 'exp-permit', 820000, 'exempt', '2026-09-15', 'paid', 'credit', NULL, NULL, '2026-09-15T09:00:00.000Z', 'נתוני דוגמה', '2026-09-15T09:00:00.000Z', 'נתוני דוגמה'),
   ('pay-insurance', NULL, 'exp-insurance', 650000, 'exempt', '2026-11-12', 'planned', 'credit', NULL, NULL, '2026-11-01T09:00:00.000Z', 'נתוני דוגמה', '2026-11-01T09:00:00.000Z', 'נתוני דוגמה'),
-  ('pay-design-1', NULL, 'exp-design', 1770000, 'incl', '2026-09-01', 'paid', 'transfer', '0998', NULL, '2026-09-01T09:00:00.000Z', 'נתוני דוגמה', '2026-09-01T09:00:00.000Z', 'נתוני דוגמה');
+  ('pay-design-1', NULL, 'exp-design', 1770000, 'incl', '2026-09-01', 'paid', 'transfer', '0998', NULL, '2026-09-01T09:00:00.000Z', 'נתוני דוגמה', '2026-09-01T09:00:00.000Z', 'נתוני דוגמה'),
+  ('pay-office-1', 'area-office-build', NULL, 1416000, 'incl', '2026-10-28', 'paid', 'transfer', '1050', 'מקדמה', '2026-10-28T09:00:00.000Z', 'נתוני דוגמה', '2026-10-28T09:00:00.000Z', 'נתוני דוגמה');

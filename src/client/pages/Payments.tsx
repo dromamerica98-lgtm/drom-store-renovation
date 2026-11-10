@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { addDays, formatDate, UPCOMING_PAYMENT_DAYS } from '../../shared/calc';
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '../../shared/labels';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, ZONE_LABELS, ZONE_ORDER } from '../../shared/labels';
 import { formatILS } from '../../shared/money';
 import type { Payment } from '../../shared/types';
 import { toBasis } from '../../shared/vat';
@@ -67,13 +67,17 @@ export function PaymentsPage() {
         <div className="filter-selects">
           <select aria-label="סינון לפי תחום או הוצאה" value={target} onChange={(e) => setTarget(e.target.value)}>
             <option value="">כל התחומים וההוצאות</option>
-            <optgroup label="תחומי עבודה">
-              {data.workAreas.map((a) => (
-                <option key={a.id} value={`area:${a.id}`}>
-                  {a.name}
-                </option>
-              ))}
-            </optgroup>
+            {ZONE_ORDER.map((zone) => (
+              <optgroup key={zone} label={`תחומים · ${ZONE_LABELS[zone]}`}>
+                {data.workAreas
+                  .filter((a) => a.zone === zone)
+                  .map((a) => (
+                    <option key={a.id} value={`area:${a.id}`}>
+                      {a.name}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
             <optgroup label="הוצאות כלליות">
               {data.expenses.map((e) => (
                 <option key={e.id} value={`expense:${e.id}`}>

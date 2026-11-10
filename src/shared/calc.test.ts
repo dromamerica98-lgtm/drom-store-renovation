@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, computeProject } from './calc';
+import { addDays, computeProject, computeZoneView, zoneBreakdown } from './calc';
+import { areaDisplayNames, normalizeAreaName } from './labels';
 import { parseShekels } from './money';
 import type { ChangeOrder, Dataset, Expense, Payment, Quote, Settings, WorkArea } from './types';
 import { toBasis } from './vat';
@@ -27,6 +28,7 @@ function area(id: string, overrides: Partial<WorkArea> = {}): WorkArea {
     ...audit,
     id,
     name: id,
+    zone: 'store',
     status: 'not_started',
     progress: 0,
     estimateAmount: null,
@@ -353,5 +355,77 @@ describe('progress and alerts', () => {
 
     const selected = computeProject(dataset({ workAreas: [area('a', { selectedQuoteId: 'q1' })], quotes }), TODAY);
     expect(selected.alerts.some((a) => a.code === 'quote_expiring')).toBe(false);
+  });
+});
+
+describe('zones', () => {
+  const zoned = () =>
+    dataset({
+      workAreas: [
+        area('elec-store', { name: 'חשמל', zone: 'store', estimateAmount: ils(80_000), progress: 50 }),
+        area('elec-office', { name: 'חשמל', zone: 'office_warehouse', estimateAmount: ils(20_000), progress: 100 }),
+        area('hvac-office', { name: 'מיזוג', zone: 'office_warehouse', selectedQuoteId: 'q', progress: 0 }),
+        area('cladding', { name: 'סגירת חוץ', zone: 'exterior', estimateAmount: ils(50_000) }),
+      ],
+      quotes: [quote('q', 'hvac-office', 30_000)],
+      expenses: [expense('permit', { actualAmount: ils(10_000) })],
+      payments: [
+        payment({ workAreaId: 'elec-store' }, 30_000),
+        payment({ workAreaId: 'hvac-office' }, 40_000),
+        payment({ workAreaId: 'elec-office' }, 5_000, { status: 'planned', date: '2026-11-01' }),
+        payment({ expenseId: 'permit' }, 10_000),
+      ],
+    });
+
+  it('splits the project by zone, keeping general expenses separate', () => {
+    const s = computeProject(zoned(), TODAY);
+    const b = zoneBreakdown(s);
+    const byZone = Object.fromEntries(b.zones.map((z) => [z.zone, z]));
+    expect(b.zones.map((z) => z.zone)).toEqual(['store', 'office_warehouse', 'exterior']);
+    expect(byZone.store).toMatchObject({ forecast: ils(80_000), paid: ils(30_000), remaining: ils(50_000), areaCount: 1, progress: 50 });
+    expect(byZone.office_warehouse).toMatchObject({ forecast: ils(50_000), paid: ils(40_000), planned: ils(5_000), areaCount: 2 });
+    expect(byZone.office_warehouse.progress).toBe(40);
+    expect(byZone.exterior).toMatchObject({ forecast: ils(50_000), paid: 0, areaCount: 1 });
+    expect(b.general).toMatchObject({ forecast: ils(10_000), paid: ils(10_000), count: 1 });
+    // The zones plus general expenses add up to the whole project.
+    expect(b.zones.reduce((t, z) => t + z.forecast, 0) + b.general.forecast).toBe(s.forecast);
+    expect(b.zones.reduce((t, z) => t + z.paid, 0) + b.general.paid).toBe(s.paid);
+    expect(byZone.store.shareOfProject).toBeCloseTo((80_000 / 190_000) * 100);
+  });
+
+  it('filters the dashboard numbers, payments and alerts to one zone', () => {
+    const data = zoned();
+    const s = computeProject(data, TODAY);
+    const office = computeZoneView(s, data, 'office_warehouse', TODAY);
+    expect(office.areas.map((a) => a.area.id)).toEqual(['elec-office', 'hvac-office']);
+    expect(office).toMatchObject({ forecast: ils(50_000), paid: ils(40_000), remaining: ils(20_000) });
+    expect(office.remaining).toBe(office.remainingCommitted + office.remainingUncommitted);
+    expect(office.upcomingPayments.map((p) => p.workAreaId)).toEqual(['elec-office']);
+    // hvac-office: 40,000 paid of 30,000 forecast -> overpaid alert; plus this zone's overdue payment.
+    expect(office.alerts.map((a) => a.code).sort()).toEqual(['area_overpaid', 'payments_overdue']);
+    expect(office.alerts.every((a) => a.code === 'payments_overdue' || a.areaId === 'hvac-office')).toBe(true);
+
+    const store = computeZoneView(s, data, 'store', TODAY);
+    expect(store.upcomingPayments).toEqual([]);
+    expect(store.alerts.some((a) => a.code === 'payments_overdue')).toBe(false);
+  });
+
+  it('adds the zone to an area name only when the name exists in more than one zone', () => {
+    const names = areaDisplayNames(zoned().workAreas);
+    expect(names.get('elec-store')).toBe('חשמל · חנות');
+    expect(names.get('elec-office')).toBe('חשמל · משרד מחסן');
+    expect(names.get('hvac-office')).toBe('מיזוג');
+    expect(normalizeAreaName('  כיבוי  אש ')).toBe('כיבוי אש');
+  });
+
+  it('names duplicated areas with their zone in alerts', () => {
+    const s = computeProject(
+      dataset({ workAreas: [area('a', { name: 'חשמל', zone: 'store' }), area('b', { name: 'חשמל', zone: 'exterior' })] }),
+      TODAY,
+    );
+    expect(s.alerts.filter((a) => a.code === 'area_missing_estimate').map((a) => a.message.split(':')[0]).sort()).toEqual([
+      'חשמל · חנות',
+      'חשמל · סגירת חוץ',
+    ]);
   });
 });

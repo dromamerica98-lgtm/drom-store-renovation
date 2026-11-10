@@ -7,6 +7,7 @@ import type {
   QuoteStatus,
   VatBasis,
   VatMode,
+  Zone,
 } from './types';
 
 export const VAT_MODE_LABELS: Record<VatMode, string> = {
@@ -79,3 +80,39 @@ export const EXPENSE_FORECAST_SOURCE_LABELS = {
   estimate: 'הערכה',
   missing: 'חסר סכום',
 } as const;
+
+export const ZONE_LABELS: Record<Zone, string> = {
+  store: 'חנות',
+  office_warehouse: 'משרד מחסן',
+  exterior: 'סגירת חוץ',
+};
+
+export const ZONE_ORDER: Zone[] = ['store', 'office_warehouse', 'exterior'];
+
+export const DEFAULT_ZONE: Zone = 'store';
+
+export function isZone(value: unknown): value is Zone {
+  return value === 'store' || value === 'office_warehouse' || value === 'exterior';
+}
+
+/** Names of work areas as compared for uniqueness: trimmed, single spaces, case-insensitive. */
+export function normalizeAreaName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * How each work area is called on screen. When the same name exists in more than one zone,
+ * the zone is added ("חשמל · משרד מחסן") so the areas can be told apart.
+ */
+export function areaDisplayNames(areas: { id: string; name: string; zone: Zone }[]): Map<string, string> {
+  const counts = new Map<string, number>();
+  for (const a of areas) counts.set(normalizeAreaName(a.name), (counts.get(normalizeAreaName(a.name)) ?? 0) + 1);
+  return new Map(
+    areas.map((a) => [a.id, (counts.get(normalizeAreaName(a.name)) ?? 0) > 1 ? `${a.name} · ${ZONE_LABELS[a.zone]}` : a.name]),
+  );
+}
+
+/** The message shown when a work area with the same name already exists in the zone. */
+export function duplicateAreaMessage(name: string, zone: Zone): string {
+  return `התחום "${name.trim()}" כבר קיים באזור "${ZONE_LABELS[zone]}". אפשר לבחור אזור אחר, או לפתוח את התחום הקיים ולערוך אותו.`;
+}
