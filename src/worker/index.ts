@@ -15,7 +15,7 @@ import type {
 } from '../shared/types';
 import { accessAuth, accessLogoutUrl, expiredAccessCookies } from './access';
 import type { AuditEntity } from '../shared/audit';
-import { duplicateAreaMessage } from '../shared/labels';
+import { duplicateAreaMessage, normalizeAreaName } from '../shared/labels';
 import { areaAuditLabel, auditStatement, diff, lookupNames, paymentLabel, snapshot, type AuditRecord } from './audit';
 import { all, count, deleteStatement, first, insertStatement, updateStatement } from './db';
 import { contentDisposition, detectFileType, sanitizeFileName } from './files';
@@ -158,15 +158,20 @@ async function commit(c: Ctx, statements: D1PreparedStatement[], records: AuditR
 }
 
 /** The same work area name may appear in several zones, but only once in each zone. */
+/**
+ * Rejects a second work area with the same name in the same zone. Names are compared after
+ * trimming, collapsing spaces and ignoring case, so rows saved before names were normalized
+ * (e.g. with a double space) still count.
+ */
 async function assertUniqueArea(c: Ctx, name: string, zone: WorkArea['zone'], exceptId = '') {
-  const clash = await first<{ id: string }>(
+  const inZone = await all<{ id: string; name: string }>(
     c.env.DB,
-    'SELECT id FROM work_areas WHERE zone = ? AND lower(name) = lower(?) AND id <> ?',
+    'SELECT id, name FROM work_areas WHERE zone = ? AND id <> ?',
     zone,
-    name,
     exceptId,
   );
-  if (clash) conflict(duplicateAreaMessage(name, zone));
+  const wanted = normalizeAreaName(name);
+  if (inZone.some((a) => normalizeAreaName(a.name) === wanted)) conflict(duplicateAreaMessage(name, zone));
 }
 
 /** An update record, or nothing when no field actually changed. */
@@ -278,6 +283,9 @@ app.put('/areas/:id', async (c) => {
   const id = c.req.param('id');
   const data = await body(c, workAreaUpdateSchema);
   const before = await existing(c, 'work_areas', id);
+  // Keep the stored spelling when only spacing or case differs, so an unrelated edit
+  // (e.g. progress) never rewrites an existing name.
+  if (normalizeAreaName(data.name) === normalizeAreaName(String(before.name))) data.name = String(before.name);
   await assertUniqueArea(c, data.name, data.zone, id);
   await commit(c, [updateStatement(c.env.DB, 'work_areas', id, data, c.get('user'))], updated('work_area', id, areaAuditLabel(data), before, data));
   return c.json({ ok: true });
