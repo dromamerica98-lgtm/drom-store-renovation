@@ -180,15 +180,71 @@ export function AreaForm({ area, defaultZone, onClose }: { area?: WorkArea; defa
   );
 }
 
-// ---------- Quote ----------
+// ---------- New supplier from inside another form ----------
 
 const NEW_SUPPLIER = '__new__';
 
-export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: Quote; onClose: () => void }) {
+/**
+ * "+ ספק חדש" inside another form: opens the same "ספק חדש" form as the suppliers page in its
+ * place, then returns to the calling form with the new supplier selected. The calling form stays
+ * mounted underneath, so everything already filled in is kept; cancelling returns to it unchanged.
+ */
+function useNewSupplier(onCreated: (supplierId: string) => void) {
+  const [open, setOpen] = useState(false);
+  const sheet = open ? (
+    <SupplierForm
+      onClose={() => setOpen(false)}
+      onCreated={(id) => {
+        setOpen(false);
+        onCreated(id);
+      }}
+    />
+  ) : null;
+  return { start: () => setOpen(true), sheet };
+}
+
+/** The supplier picker shared by the quote and chosen-supplier forms. */
+function SupplierSelect({
+  label,
+  value,
+  onChange,
+  onNew,
+  describe = (s) => s.name,
+}: {
+  label: string;
+  value: string;
+  onChange: (supplierId: string) => void;
+  onNew: () => void;
+  describe?: (s: Supplier) => string;
+}) {
   const { data } = useData();
+  return (
+    <Select
+      label={label}
+      value={value}
+      onChange={(v) => (v === NEW_SUPPLIER ? onNew() : onChange(v))}
+      options={[
+        ...(value === '' ? [{ value: '', label: data.suppliers.length ? 'בחרו ספק…' : 'עוד אין ספקים' }] : []),
+        ...data.suppliers.map((s) => ({ value: s.id, label: describe(s) })),
+        { value: NEW_SUPPLIER, label: '+ ספק חדש' },
+      ]}
+      hint={
+        <>
+          הספק לא ברשימה?{' '}
+          <button type="button" className="link-button" onClick={onNew}>
+            הוספת ספק חדש
+          </button>
+        </>
+      }
+    />
+  );
+}
+
+// ---------- Quote ----------
+
+export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: Quote; onClose: () => void }) {
   const [f, setF] = useState({
-    supplierId: quote?.supplierId ?? (data.suppliers.length ? '' : NEW_SUPPLIER),
-    newSupplier: '',
+    supplierId: quote?.supplierId ?? '',
     amount: agorotToInput(quote?.amount),
     vatMode: quote?.vatMode ?? ('excl' as VatMode),
     receivedDate: quote?.receivedDate ?? todayISO(),
@@ -203,6 +259,7 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
   const uploaded = useRef(new Set<File>());
   const set = setter(setF);
   const { busy, error, validated, remove } = useSubmit(onClose);
+  const newSupplier = useNewSupplier((supplierId) => setF((p) => ({ ...p, supplierId })));
 
   const onSubmit = () =>
     validated(
@@ -214,22 +271,16 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
           throw new FormError((e as Error).message);
         }
         return {
-          newSupplier: f.supplierId === NEW_SUPPLIER ? requireText('שם הספק החדש', f.newSupplier) : null,
-          body: {
-            supplierId: f.supplierId,
-            amount: amountOf('סכום ההצעה', f.amount, { required: true }),
-            vatMode: f.vatMode,
-            receivedDate: f.receivedDate || null,
-            validUntil: f.validUntil || null,
-            description: f.description,
-            status: f.status,
-          },
+          supplierId: f.supplierId,
+          amount: amountOf('סכום ההצעה', f.amount, { required: true }),
+          vatMode: f.vatMode,
+          receivedDate: f.receivedDate || null,
+          validUntil: f.validUntil || null,
+          description: f.description,
+          status: f.status,
         };
       },
-      async ({ newSupplier, body }) => {
-        let supplierId = body.supplierId;
-        if (newSupplier) supplierId = (await api.create('suppliers', { name: newSupplier })).id;
-        const payload = { ...body, supplierId };
+      async (payload) => {
         let quoteId = quote?.id ?? createdId.current;
         if (quoteId) await api.update('quotes', quoteId, payload);
         else quoteId = createdId.current = (await api.create('quotes', { ...payload, workAreaId: areaId })).id;
@@ -241,24 +292,13 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
       },
     );
 
+  if (newSupplier.sheet) return newSupplier.sheet;
   return (
     <Sheet title={quote ? 'עריכת הצעת מחיר' : 'הצעת מחיר חדשה'} onClose={onClose} onSubmit={onSubmit} busy={busy}
       error={error}
       onDelete={quote ? () => remove('למחוק את הצעת המחיר ואת הקבצים שלה?', () => api.remove('quotes', quote.id)) : undefined}
     >
-      <Select
-        label="ספק *"
-        value={f.supplierId}
-        onChange={set('supplierId')}
-        options={[
-          ...(f.supplierId === '' ? [{ value: '', label: 'בחרו ספק…' }] : []),
-          ...data.suppliers.map((s) => ({ value: s.id, label: s.name })),
-          { value: NEW_SUPPLIER, label: '+ ספק חדש' },
-        ]}
-      />
-      {f.supplierId === NEW_SUPPLIER && (
-        <TextInput label="שם הספק החדש" value={f.newSupplier} onChange={set('newSupplier')} required />
-      )}
+      <SupplierSelect label="ספק *" value={f.supplierId} onChange={set('supplierId')} onNew={newSupplier.start} />
       <MoneyField label="סכום ההצעה" amount={f.amount} onAmount={set('amount')} vat={f.vatMode} onVat={set('vatMode')} required />
       <div className="field-row">
         <TextInput label="תאריך קבלה" type="date" value={f.receivedDate} onChange={set('receivedDate')} />
@@ -306,8 +346,7 @@ export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose:
   const openQuotes = data.quotes.filter((q) => q.workAreaId === area.id && q.status === 'open');
   const current = data.quotes.find((q) => q.id === area.selectedQuoteId);
   const [f, setF] = useState({
-    supplierId: current?.supplierId ?? (data.suppliers.length ? '' : NEW_SUPPLIER),
-    newSupplier: '',
+    supplierId: current?.supplierId ?? '',
     quoteId: current?.id ?? '',
     amount: agorotToInput(area.estimateAmount),
     vatMode: area.estimateVat,
@@ -319,6 +358,7 @@ export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose:
   const uploaded = useRef(new Set<File>());
   const set = setter(setF);
   const { busy, error, validated } = useSubmit(onClose);
+  const newSupplier = useNewSupplier((supplierId) => setF((p) => ({ ...p, supplierId, quoteId: '' })));
 
   const supplierQuotes = openQuotes.filter((q) => q.supplierId === f.supplierId);
   const existingQuote =
@@ -330,15 +370,13 @@ export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose:
     validated(
       () => {
         if (!f.supplierId) throw new FormError('יש לבחור ספק');
-        const newSupplier = f.supplierId === NEW_SUPPLIER ? requireText('שם הספק החדש', f.newSupplier) : null;
-        if (existingQuote) return { newSupplier, quoteId: existingQuote.id, body: null };
+        if (existingQuote) return { quoteId: existingQuote.id, body: null };
         try {
           files.forEach(checkFileSize);
         } catch (e) {
           throw new FormError((e as Error).message);
         }
         return {
-          newSupplier,
           quoteId: null,
           body: {
             amount: amountOf('הסכום המוסכם', f.amount, { required: true }),
@@ -350,16 +388,14 @@ export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose:
           },
         };
       },
-      async ({ newSupplier, quoteId, body }) => {
+      async ({ quoteId, body }) => {
         if (quoteId) {
           await api.selectQuote(area.id, quoteId);
           return;
         }
         let id = createdId.current;
         if (!id) {
-          let supplierId = f.supplierId;
-          if (newSupplier) supplierId = (await api.create('suppliers', { name: newSupplier })).id;
-          id = createdId.current = (await api.create('quotes', { ...body, supplierId, workAreaId: area.id, select: true })).id;
+          id = createdId.current = (await api.create('quotes', { ...body, supplierId: f.supplierId, workAreaId: area.id, select: true })).id;
         }
         for (const file of files) {
           if (uploaded.current.has(file)) continue;
@@ -369,24 +405,16 @@ export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose:
       },
     );
 
+  if (newSupplier.sheet) return newSupplier.sheet;
   return (
     <Sheet title={current ? 'החלפת הספק הנבחר' : 'בחירת ספק'} onClose={onClose} onSubmit={onSubmit} busy={busy} error={error}>
-      <Select
+      <SupplierSelect
         label="הספק שנבחר *"
         value={f.supplierId}
-        onChange={(v) => setF((p) => ({ ...p, supplierId: v, quoteId: '' }))}
-        options={[
-          ...(f.supplierId === '' ? [{ value: '', label: 'בחרו ספק…' }] : []),
-          ...data.suppliers.map((s) => ({
-            value: s.id,
-            label: openQuotes.some((q) => q.supplierId === s.id) ? `${s.name} · יש הצעה בתחום` : s.name,
-          })),
-          { value: NEW_SUPPLIER, label: '+ ספק חדש' },
-        ]}
+        onChange={(supplierId) => setF((p) => ({ ...p, supplierId, quoteId: '' }))}
+        onNew={newSupplier.start}
+        describe={(s) => (openQuotes.some((q) => q.supplierId === s.id) ? `${s.name} · יש הצעה בתחום` : s.name)}
       />
-      {f.supplierId === NEW_SUPPLIER && (
-        <TextInput label="שם הספק החדש" value={f.newSupplier} onChange={set('newSupplier')} required />
-      )}
       {supplierQuotes.length > 0 && (
         <Select
           label="לפי איזו הצעה"
@@ -652,7 +680,16 @@ export function PaymentForm({
 
 // ---------- Supplier ----------
 
-export function SupplierForm({ supplier, onClose }: { supplier?: Supplier; onClose: () => void }) {
+export function SupplierForm({
+  supplier,
+  onClose,
+  onCreated,
+}: {
+  supplier?: Supplier;
+  onClose: () => void;
+  /** Opened from another form: called with the new supplier's id instead of onClose, to return there. */
+  onCreated?: (supplierId: string) => void;
+}) {
   const [f, setF] = useState({
     name: supplier?.name ?? '',
     contactName: supplier?.contactName ?? '',
@@ -662,17 +699,24 @@ export function SupplierForm({ supplier, onClose }: { supplier?: Supplier; onClo
     notes: supplier?.notes ?? '',
   });
   const set = setter(setF);
-  const { busy, error, validated, remove } = useSubmit(onClose);
+  const createdId = useRef<string | null>(null);
+  const { busy, error, validated, remove } = useSubmit(() =>
+    createdId.current && onCreated ? onCreated(createdId.current) : onClose(),
+  );
 
   const onSubmit = () =>
     validated(
       () => ({ ...f, name: requireText('שם הספק', f.name) }),
-      (body) => (supplier ? api.update('suppliers', supplier.id, body) : api.create('suppliers', body)),
+      async (body) => {
+        if (supplier) await api.update('suppliers', supplier.id, body);
+        else if (!createdId.current) createdId.current = (await api.create('suppliers', body)).id;
+      },
     );
 
   return (
     <Sheet title={supplier ? 'עריכת ספק' : 'ספק חדש'} onClose={onClose} onSubmit={onSubmit} busy={busy}
       error={error}
+      submitLabel={onCreated ? 'שמירה וחזרה' : undefined}
       onDelete={supplier ? () => remove('למחוק את הספק?', () => api.remove('suppliers', supplier.id)) : undefined}
     >
       <TextInput label="שם הספק" value={f.name} onChange={set('name')} required />

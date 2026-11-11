@@ -1799,6 +1799,15 @@ input[type='file'] {
   text-decoration: underline;
 }
 
+/* An action inside a field's note, e.g. "הוספת ספק חדש": looks like a link. */
+.hint .link-button {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding-block: 4px;
+}
+
 @media (max-width: 520px) {
   .zone-table .col-progress {
     display: none;
