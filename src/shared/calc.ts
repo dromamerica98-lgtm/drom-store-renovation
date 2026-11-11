@@ -493,3 +493,11 @@ function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
   }
   return map;
 }
+
+/** Statuses that say a supplier was already chosen for the work area. */
+const SUPPLIER_CHOSEN_STATUSES: ReadonlySet<WorkArea['status']> = new Set(['supplier_selected', 'in_progress', 'done']);
+
+/** The area says a supplier was chosen ("ספק נבחר", in progress or done), but no supplier is recorded. */
+export function supplierMissing(area: Pick<WorkArea, 'selectedQuoteId' | 'status'>): boolean {
+  return !area.selectedQuoteId && SUPPLIER_CHOSEN_STATUSES.has(area.status);
+}

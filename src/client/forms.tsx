@@ -6,13 +6,15 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   QUOTE_STATUS_LABELS,
+  VAT_MODE_LABELS,
   DEFAULT_ZONE,
   ZONE_LABELS,
   ZONE_ORDER,
   duplicateAreaMessage,
   normalizeAreaName,
 } from '../shared/labels';
-import { agorotToInput, parseShekels } from '../shared/money';
+import { formatDate, supplierMissing } from '../shared/calc';
+import { agorotToInput, formatILS, parseShekels } from '../shared/money';
 import type {
   AreaStatus,
   ChangeOrder,
@@ -158,6 +160,11 @@ export function AreaForm({ area, defaultZone, onClose }: { area?: WorkArea; defa
         value={f.status}
         options={AREA_STATUS_LABELS}
         onChange={(v) => setF((p) => ({ ...p, status: v, progress: v === 'done' ? '100' : p.progress }))}
+        hint={
+          supplierMissing({ selectedQuoteId: area?.selectedQuoteId ?? null, status: f.status })
+            ? 'איזה ספק נבחר מציינים בכרטיס התחום, ב"בחירת ספק".'
+            : undefined
+        }
       />
       <TextInput label="אחוז התקדמות" value={f.progress} onChange={set('progress')} inputMode="numeric" />
       <MoneyField
@@ -281,6 +288,149 @@ export function QuoteForm({ areaId, quote, onClose }: { areaId: string; quote?: 
         )}
       </Field>
       <Select label="סטטוס" value={f.status} onChange={set('status')} options={QUOTE_STATUS_LABELS} />
+    </Sheet>
+  );
+}
+
+// ---------- Chosen supplier ----------
+
+const NEW_QUOTE = '__new_quote__';
+
+/**
+ * "בחירת ספק": records which supplier was chosen for a work area. The choice is the area's selected
+ * quote, so the forecast and the committed amount follow the agreed price. An open quote from that
+ * supplier is selected as is; otherwise a quote is created with the agreed amount and selected at once.
+ */
+export function SupplierChoiceForm({ area, onClose }: { area: WorkArea; onClose: () => void }) {
+  const { data } = useData();
+  const openQuotes = data.quotes.filter((q) => q.workAreaId === area.id && q.status === 'open');
+  const current = data.quotes.find((q) => q.id === area.selectedQuoteId);
+  const [f, setF] = useState({
+    supplierId: current?.supplierId ?? (data.suppliers.length ? '' : NEW_SUPPLIER),
+    newSupplier: '',
+    quoteId: current?.id ?? '',
+    amount: agorotToInput(area.estimateAmount),
+    vatMode: area.estimateVat,
+    description: '',
+  });
+  const [files, setFiles] = useState<File[]>([]);
+  // A retry after a failed upload must not create the quote or upload a file a second time.
+  const createdId = useRef<string | null>(null);
+  const uploaded = useRef(new Set<File>());
+  const set = setter(setF);
+  const { busy, error, validated } = useSubmit(onClose);
+
+  const supplierQuotes = openQuotes.filter((q) => q.supplierId === f.supplierId);
+  const existingQuote =
+    f.quoteId === NEW_QUOTE ? undefined : (supplierQuotes.find((q) => q.id === f.quoteId) ?? supplierQuotes[0]);
+  const quoteText = (q: Quote) =>
+    `${formatILS(q.amount)} ${VAT_MODE_LABELS[q.vatMode]}${q.receivedDate ? ` · ${formatDate(q.receivedDate)}` : ''}`;
+
+  const onSubmit = () =>
+    validated(
+      () => {
+        if (!f.supplierId) throw new FormError('יש לבחור ספק');
+        const newSupplier = f.supplierId === NEW_SUPPLIER ? requireText('שם הספק החדש', f.newSupplier) : null;
+        if (existingQuote) return { newSupplier, quoteId: existingQuote.id, body: null };
+        try {
+          files.forEach(checkFileSize);
+        } catch (e) {
+          throw new FormError((e as Error).message);
+        }
+        return {
+          newSupplier,
+          quoteId: null,
+          body: {
+            amount: amountOf('הסכום המוסכם', f.amount, { required: true }),
+            vatMode: f.vatMode,
+            receivedDate: todayISO(),
+            validUntil: null,
+            description: f.description,
+            status: 'open' as QuoteStatus,
+          },
+        };
+      },
+      async ({ newSupplier, quoteId, body }) => {
+        if (quoteId) {
+          await api.selectQuote(area.id, quoteId);
+          return;
+        }
+        let id = createdId.current;
+        if (!id) {
+          let supplierId = f.supplierId;
+          if (newSupplier) supplierId = (await api.create('suppliers', { name: newSupplier })).id;
+          id = createdId.current = (await api.create('quotes', { ...body, supplierId, workAreaId: area.id, select: true })).id;
+        }
+        for (const file of files) {
+          if (uploaded.current.has(file)) continue;
+          await api.uploadQuoteFile(id, file);
+          uploaded.current.add(file);
+        }
+      },
+    );
+
+  return (
+    <Sheet title={current ? 'החלפת הספק הנבחר' : 'בחירת ספק'} onClose={onClose} onSubmit={onSubmit} busy={busy} error={error}>
+      <Select
+        label="הספק שנבחר *"
+        value={f.supplierId}
+        onChange={(v) => setF((p) => ({ ...p, supplierId: v, quoteId: '' }))}
+        options={[
+          ...(f.supplierId === '' ? [{ value: '', label: 'בחרו ספק…' }] : []),
+          ...data.suppliers.map((s) => ({
+            value: s.id,
+            label: openQuotes.some((q) => q.supplierId === s.id) ? `${s.name} · יש הצעה בתחום` : s.name,
+          })),
+          { value: NEW_SUPPLIER, label: '+ ספק חדש' },
+        ]}
+      />
+      {f.supplierId === NEW_SUPPLIER && (
+        <TextInput label="שם הספק החדש" value={f.newSupplier} onChange={set('newSupplier')} required />
+      )}
+      {supplierQuotes.length > 0 && (
+        <Select
+          label="לפי איזו הצעה"
+          value={existingQuote?.id ?? NEW_QUOTE}
+          onChange={set('quoteId')}
+          options={[
+            ...supplierQuotes.map((q) => ({ value: q.id, label: quoteText(q) })),
+            { value: NEW_QUOTE, label: 'סכום מוסכם אחר' },
+          ]}
+          hint="ההצעה תסומן כנבחרת, והתחזית של התחום תתבסס עליה."
+        />
+      )}
+      {!existingQuote && (
+        <>
+          <MoneyField label="הסכום המוסכם" amount={f.amount} onAmount={set('amount')} vat={f.vatMode} onVat={set('vatMode')} required />
+          <p className="hint">
+            נשמר כהצעת המחיר הנבחרת של הספק. התחזית של התחום תתבסס על הסכום הזה, והוא ייספר כמחויב.
+            {area.estimateAmount !== null && ' מולא מראש לפי הערכת העלות.'}
+          </p>
+          <TextArea label="מה כלול (לא חובה)" value={f.description} onChange={set('description')} />
+          <Field label="קובץ ההצעה או ההסכם (לא חובה)">
+            {(id) => (
+              <>
+                <input
+                  id={id}
+                  type="file"
+                  accept={QUOTE_FILE_ACCEPT}
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                />
+                {files.length > 0 && (
+                  <ul className="picked-files">
+                    {files.map((file) => (
+                      <li key={`${file.name}-${file.size}`} dir="auto">
+                        {file.name} · {formatFileSize(file.size)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </Field>
+        </>
+      )}
     </Sheet>
   );
 }

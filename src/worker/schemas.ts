@@ -65,6 +65,11 @@ export const quoteSchema = z.object({
   description: optText,
   status: z.enum(['open', 'rejected']),
 });
+/**
+ * Creating a quote may also select it for its work area in the same batch: "בחירת ספק" records
+ * the chosen supplier and the agreed amount as the area's selected quote.
+ */
+export const quoteCreateSchema = quoteSchema.extend({ select: z.boolean().default(false) });
 /** A quote cannot move to another work area. */
 export const quoteUpdateSchema = quoteSchema.omit({ workAreaId: true });
 

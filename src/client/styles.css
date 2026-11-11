@@ -601,6 +601,34 @@ p {
   color: var(--critical-ink);
 }
 
+.inline-alert.warning {
+  margin-top: 0;
+  color: var(--warning-ink);
+}
+
+/* ---------- Chosen supplier ---------- */
+
+.chosen-supplier {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.chosen-supplier-name {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.chosen-supplier-amount {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.supplier-missing {
+  color: var(--warning-ink);
+}
+
 .inline-alert .icon {
   width: 16px;
   height: 16px;
@@ -1240,6 +1268,11 @@ a:focus-visible {
 .sheet-body {
   padding: 16px;
   overflow-y: auto;
+}
+
+/* A loose note between two fields gets the same gap as a field. */
+.sheet-body > .hint {
+  margin: -8px 0 14px;
 }
 
 .sheet-foot {

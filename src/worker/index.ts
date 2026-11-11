@@ -24,7 +24,7 @@ import {
   changeOrderUpdateSchema,
   expenseSchema,
   paymentSchema,
-  quoteSchema,
+  quoteCreateSchema,
   quoteUpdateSchema,
   selectionSchema,
   settingsSchema,
@@ -338,17 +338,25 @@ const quoteLabel = (q: Row, names: Record<string, string>) =>
   [names[String(q.supplierId)], names[String(q.workAreaId)]].filter(Boolean).join(' · ');
 
 app.post('/quotes', async (c) => {
-  const data = await body(c, quoteSchema);
+  const { select, ...data } = await body(c, quoteCreateSchema);
   await requireExists(c, 'work_areas', data.workAreaId, 'תחום העבודה לא נמצא');
   await requireExists(c, 'suppliers', data.supplierId, 'הספק לא נמצא');
+  const area = (await existing(c, 'work_areas', data.workAreaId)) as Row & WorkArea;
+  if (select && data.status === 'rejected') conflict('אי אפשר לבחור הצעה שנדחתה');
   const user = c.get('user');
   const names = await lookupNames(c.env.DB, { areas: [data.workAreaId], suppliers: [data.supplierId] });
   const { id, stmt } = insertStatement(c.env.DB, 'quotes', data, user);
   const statements = [stmt];
   const records: AuditRecord[] = [{ action: 'create', entity: 'quote', entityId: id, label: quoteLabel(data, names), changes: snapshot(data), refs: names }];
-  // A work area that receives its first quote moves on to collecting quotes.
-  const area = await existing(c, 'work_areas', data.workAreaId);
-  if (area.status === 'not_started') {
+  if (select) {
+    // "בחירת ספק": the new quote becomes the area's selection, as POST /areas/:id/selection would do.
+    const status = area.status === 'not_started' || area.status === 'collecting_quotes' ? 'supplier_selected' : area.status;
+    const after = { selectedQuoteId: id, status };
+    const refs = { ...(await lookupNames(c.env.DB, { quotes: [area.selectedQuoteId] })), [id]: quoteLabel(data, names) };
+    statements.push(updateStatement(c.env.DB, 'work_areas', data.workAreaId, after, user));
+    records.push(...updated('work_area', data.workAreaId, areaAuditLabel(area), area, after, refs));
+  } else if (area.status === 'not_started') {
+    // A work area that receives its first quote moves on to collecting quotes.
     const after = { status: 'collecting_quotes' };
     statements.push(updateStatement(c.env.DB, 'work_areas', data.workAreaId, after, user));
     records.push(...updated('work_area', data.workAreaId, areaAuditLabel(area), area, after));

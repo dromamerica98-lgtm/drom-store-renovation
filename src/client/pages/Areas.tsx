@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { formatDate, type AreaCalc } from '../../shared/calc';
+import { formatDate, supplierMissing, type AreaCalc } from '../../shared/calc';
 import {
   AREA_FORECAST_SOURCE_LABELS,
   AREA_STATUS_LABELS,
@@ -30,7 +30,7 @@ import {
 import { QuoteFiles } from '../components/QuoteFiles';
 import { useZoneFilter, ZoneFilter } from '../components/ZoneFilter';
 import { useData } from '../data';
-import { AreaForm, ChangeOrderForm, PaymentForm, QuoteForm } from '../forms';
+import { AreaForm, ChangeOrderForm, PaymentForm, QuoteForm, SupplierChoiceForm } from '../forms';
 import { supplierName } from '../util';
 
 export function AreasPage() {
@@ -94,7 +94,15 @@ function AreaCards({ areas }: { areas: AreaCalc[] }) {
                 <Chip>{AREA_STATUS_LABELS[a.area.status]}</Chip>
               </div>
               <div className="area-card-sub">
-                {supplierId ? `ספק: ${supplierName(data, supplierId)}` : AREA_FORECAST_SOURCE_LABELS[a.forecastSource]}
+                {supplierId ? (
+                  `ספק: ${supplierName(data, supplierId)}`
+                ) : supplierMissing(a.area) ? (
+                  <>
+                    <span className="supplier-missing">ספק: לא צוין</span> · {AREA_FORECAST_SOURCE_LABELS[a.forecastSource]}
+                  </>
+                ) : (
+                  AREA_FORECAST_SOURCE_LABELS[a.forecastSource]
+                )}
               </div>
               <div className="progress-row">
                 <Meter value={a.area.progress} label={`התקדמות ${a.area.name}`} />
@@ -115,6 +123,7 @@ function AreaCards({ areas }: { areas: AreaCalc[] }) {
 
 type Editing =
   | { kind: 'area' }
+  | { kind: 'supplier' }
   | { kind: 'quote'; quote?: Quote }
   | { kind: 'change'; change?: ChangeOrder }
   | { kind: 'payment'; payment?: Payment }
@@ -191,6 +200,8 @@ export function AreaPage() {
         <ProgressEditor areaId={area.id} progress={area.progress} paidPct={calc.paidPct} />
         {area.notes && <p className="notes">{area.notes}</p>}
       </section>
+
+      <ChosenSupplier calc={calc} onChoose={() => setEditing({ kind: 'supplier' })} />
 
       <Section title="הצעות מחיר" action={<AddButton onClick={() => setEditing({ kind: 'quote' })}>הצעה</AddButton>}>
         {quotes.length === 0 ? (
@@ -290,10 +301,47 @@ export function AreaPage() {
       </Section>
 
       {editing?.kind === 'area' && <AreaForm area={area} onClose={close} />}
+      {editing?.kind === 'supplier' && <SupplierChoiceForm area={area} onClose={close} />}
       {editing?.kind === 'quote' && <QuoteForm areaId={area.id} quote={editing.quote} onClose={close} />}
       {editing?.kind === 'change' && <ChangeOrderForm areaId={area.id} change={editing.change} onClose={close} />}
       {editing?.kind === 'payment' && <PaymentForm payment={editing.payment} target={`area:${area.id}`} onClose={close} />}
     </>
+  );
+}
+
+/** Which supplier was chosen for the area, with a way to choose or replace it. */
+function ChosenSupplier({ calc, onChoose }: { calc: AreaCalc; onChoose: () => void }) {
+  const { data } = useData();
+  const { area, selectedQuote } = calc;
+  const { displayBasis, vatRate } = data.settings;
+  return (
+    <Section
+      title="ספק נבחר"
+      action={
+        <button type="button" className={`btn small ${selectedQuote ? '' : 'primary'}`} onClick={onChoose}>
+          {selectedQuote ? 'החלפה' : 'בחירת ספק'}
+        </button>
+      }
+    >
+      {selectedQuote ? (
+        <>
+          <div className="chosen-supplier">
+            <span className="chosen-supplier-name">{supplierName(data, selectedQuote.supplierId)}</span>
+            <Money value={toBasis(selectedQuote.amount, selectedQuote.vatMode, displayBasis, vatRate)} className="chosen-supplier-amount" />
+          </div>
+          <p className="hint">
+            סכום מוסכם {formatILS(selectedQuote.amount)} {VAT_MODE_LABELS[selectedQuote.vatMode]}, לפי ההצעה הנבחרת
+            {calc.approvedChanges !== 0 && `, ועוד תוספות שאושרו ${formatSignedILS(calc.approvedChanges)}`}.
+          </p>
+        </>
+      ) : supplierMissing(area) ? (
+        <p className="inline-alert warning">
+          <Icon name="alert" /> התחום מסומן "{AREA_STATUS_LABELS[area.status]}", אבל עוד לא צוין איזה ספק נבחר.
+        </p>
+      ) : (
+        <p className="hint">עוד לא נבחר ספק. כשתבחרו, התחזית של התחום תתבסס על הסכום המוסכם.</p>
+      )}
+    </Section>
   );
 }
 

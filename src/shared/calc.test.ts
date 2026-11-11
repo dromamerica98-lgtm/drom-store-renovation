@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, computeProject, computeZoneView, zoneBreakdown } from './calc';
+import { addDays, computeProject, computeZoneView, supplierMissing, zoneBreakdown } from './calc';
 import { areaDisplayNames, countOf, normalizeAreaName } from './labels';
 import { parseShekels } from './money';
 import type { ChangeOrder, Dataset, Expense, Payment, Quote, Settings, WorkArea } from './types';
@@ -433,5 +433,16 @@ describe('zones', () => {
       'חשמל · חנות',
       'חשמל · סגירת חוץ',
     ]);
+  });
+});
+
+describe('chosen supplier', () => {
+  it('flags areas marked as having a supplier when none is recorded', () => {
+    expect(supplierMissing(area('a1', { status: 'supplier_selected' }))).toBe(true);
+    expect(supplierMissing(area('a1', { status: 'in_progress' }))).toBe(true);
+    expect(supplierMissing(area('a1', { status: 'done' }))).toBe(true);
+    expect(supplierMissing(area('a1', { status: 'supplier_selected', selectedQuoteId: 'q1' }))).toBe(false);
+    expect(supplierMissing(area('a1', { status: 'collecting_quotes' }))).toBe(false);
+    expect(supplierMissing(area('a1', { status: 'not_started' }))).toBe(false);
   });
 });
