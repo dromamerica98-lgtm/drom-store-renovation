@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drom-store-renovation",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // Preview URLs would expose the app on extra hostnames; keep them off unless Access also covers them.
+  "preview_urls": false,
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "renovation-db",
+      "database_id": "f4a479ca-2e18-4342-9a03-a13dbdd6bef3",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Quote files (PDF and images). The bucket must stay private: no r2.dev URL and no custom domain.
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "renovation-files"
+    }
+  ],
+  // Local development only (vite dev): simulates the identity Access gives the Worker
+  // (ctx.access) without real keys. Remove the block to test a signed-out request.
+  "access": {
+    "dev": {
+      "aud": "local-dev-aud",
+      "identity": { "email": "dev@localhost", "name": "משתמש פיתוח" }
+    }
+  },
+  "vars": {
+    // Cloudflare Access settings, filled in before deployment (see README).
+    // Required: the Application Audience (AUD) tag of the Access application protecting this Worker.
+    "ACCESS_AUD": "18b6b14ba33ad747f60de040904d3f9103ea40d8dc0ce5fb55c796b2475c4f63",
+    // Needed only for the JWT fallback, e.g. "https://your-team.cloudflareaccess.com".
+    "ACCESS_TEAM_DOMAIN": "https://damp-bread-d7b5.cloudflareaccess.com",
+    // Who may read the change history (comma separated).
+    "ADMIN_EMAILS": "dromamerica98@gmail.com,ofer.wiesel@gmail.com"
+  },
+  "observability": { "enabled": true }
+}
