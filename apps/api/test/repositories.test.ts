@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { repositories, type Repositories } from '../src/db';
 import type { ActivityRecord, WriteMeta } from '../src/domain/records';
+import { D1_MAX_PARAMS, upsertStatements, type Column } from '../src/db/sql';
 import { createTestDb, resetDb, type TestDb } from './helpers/db';
 
 let t: TestDb;
@@ -204,5 +205,26 @@ describe('SyncRepository', () => {
     const runs = await repo.sync.recentRuns();
     expect(runs.map((r) => r.status)).toEqual(['running', 'success']);
     expect(runs[1]).toMatchObject({ trigger: 'manual', stats: { sleep: 12 }, finishedAt: '2026-11-12T07:00:05Z' });
+  });
+});
+
+describe('multi-row upserts', () => {
+  it('packs rows under the D1 100-parameter limit and stays idempotent', async () => {
+    type Row = { date: string; avg: number };
+    const columns: Column<Row>[] = [
+      ['date', (r) => r.date],
+      ['avg_stress', (r) => r.avg],
+      ['source', () => 'mock'],
+      ['fetched_at', () => META.fetchedAt],
+      ['updated_at', () => META.fetchedAt],
+    ];
+    const rows = Array.from({ length: 45 }, (_, i) => ({ date: `2026-10-${String((i % 30) + 1).padStart(2, '0')}`, avg: i % 100 }));
+    const unique = rows.slice(0, 30);
+    const statements = upsertStatements(t.db, 'stress_daily', ['date'], columns, unique);
+    expect(statements).toHaveLength(Math.ceil(30 / Math.floor(D1_MAX_PARAMS / columns.length)));
+    await t.db.batch(statements);
+    await t.db.batch(upsertStatements(t.db, 'stress_daily', ['date'], columns, unique.map((r) => ({ ...r, avg: 50 }))));
+    const res = await t.db.prepare('SELECT COUNT(*) AS n, MIN(avg_stress) AS lo, MAX(avg_stress) AS hi FROM stress_daily').first<{ n: number; lo: number; hi: number }>();
+    expect(res).toEqual({ n: 30, lo: 50, hi: 50 });
   });
 });

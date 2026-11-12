@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json && tsc -p functions/tsconfig.json",
-    "deploy": "npm run build && wrangler pages deploy"
+    "deploy": "npm run build && wrangler pages deploy",
+    "test": "vitest run",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@coach/shared": "0.1.0",

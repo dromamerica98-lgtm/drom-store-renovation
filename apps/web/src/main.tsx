@@ -1,12 +1,11 @@
 import { render } from 'preact';
-
-function App() {
-  return (
-    <main>
-      <h1>Coach</h1>
-      <p>Project scaffold. The Today screen arrives in Stage 5.</p>
-    </main>
-  );
-}
+import { App } from './app';
+import './styles.css';
 
 render(<App />, document.getElementById('app')!);
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('Service worker registration failed', err));
+  });
+}

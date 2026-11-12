@@ -10,7 +10,7 @@ import type {
   WithRaw,
   WriteMeta,
 } from '../domain/records';
-import { type Column, n, runInBatches, toJson, upsertStatement } from './sql';
+import { type Column, n, runInBatches, toJson, upsertStatements } from './sql';
 
 /** Columns every Garmin source table shares. */
 function provenance<T extends { raw?: unknown }>(meta: WriteMeta): Column<T>[] {
@@ -116,10 +116,7 @@ export class HealthRepository {
     meta: WriteMeta,
   ): Promise<number> {
     const all = [...columns, ...provenance<T>(meta)];
-    await runInBatches(
-      this.db,
-      rows.map((r) => upsertStatement(this.db, table, ['date'], all, r)),
-    );
+    await runInBatches(this.db, upsertStatements(this.db, table, ['date'], all, rows));
     return rows.length;
   }
 
@@ -154,10 +151,7 @@ export class HealthRepository {
       ['fetched_at', () => meta.fetchedAt],
       ['updated_at', () => meta.fetchedAt],
     ];
-    await runInBatches(
-      this.db,
-      rows.map((r) => upsertStatement(this.db, 'intraday_series', ['date', 'metric'], columns, r)),
-    );
+    await runInBatches(this.db, upsertStatements(this.db, 'intraday_series', ['date', 'metric'], columns, rows));
     return rows.length;
   }
 

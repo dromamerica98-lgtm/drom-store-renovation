@@ -1,6 +1,6 @@
 import type { IsoDate, Sport, ZoneTimes } from '@coach/engine';
 import type { ActivityDetailsRecord, ActivityLap, ActivityRecord, ActivityStreams, WithRaw, WriteMeta } from '../domain/records';
-import { type Column, bool, n, parseJson, runInBatches, toJson, upsertStatement } from './sql';
+import { type Column, bool, n, parseJson, runInBatches, toJson, upsertStatement, upsertStatements } from './sql';
 
 type ActivityRow = {
   id: number;
@@ -113,10 +113,7 @@ export class ActivityRepository {
       ['fetched_at', () => meta.fetchedAt],
       ['updated_at', () => meta.fetchedAt],
     ];
-    await runInBatches(
-      this.db,
-      rows.map((r) => upsertStatement(this.db, 'activities', ['id'], columns, r)),
-    );
+    await runInBatches(this.db, upsertStatements(this.db, 'activities', ['id'], columns, rows));
     return rows.length;
   }
 

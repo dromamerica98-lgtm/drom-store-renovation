@@ -31,8 +31,38 @@ export function upsertStatement<T>(
   return db.prepare(sql).bind(...columns.map(([, get]) => get(row)));
 }
 
+/** D1 allows at most 100 bound parameters per statement. */
+export const D1_MAX_PARAMS = 100;
+
+/**
+ * Multi-row upsert: packs as many rows per statement as the parameter limit
+ * allows. Same semantics as upsertStatement, far fewer statements.
+ */
+export function upsertStatements<T>(
+  db: D1Database,
+  table: string,
+  key: readonly string[],
+  columns: readonly Column<T>[],
+  rows: readonly T[],
+): D1PreparedStatement[] {
+  const names = columns.map((c) => c[0]);
+  const perStatement = Math.max(1, Math.floor(D1_MAX_PARAMS / names.length));
+  const updates = names.filter((n) => !key.includes(n)).map((n) => `${n} = excluded.${n}`);
+  const conflict = `ON CONFLICT (${key.join(', ')}) DO ${updates.length ? `UPDATE SET ${updates.join(', ')}` : 'NOTHING'}`;
+  const out: D1PreparedStatement[] = [];
+  for (let i = 0; i < rows.length; i += perStatement) {
+    const chunk = rows.slice(i, i + perStatement);
+    const values = chunk
+      .map((_, r) => `(${names.map((__, c) => `?${r * names.length + c + 1}`).join(', ')})`)
+      .join(', ');
+    const sql = `INSERT INTO ${table} (${names.join(', ')}) VALUES ${values} ${conflict}`;
+    out.push(db.prepare(sql).bind(...chunk.flatMap((row) => columns.map(([, get]) => get(row)))));
+  }
+  return out;
+}
+
 /** Runs statements in D1 batches (each batch is one implicit transaction). */
-export async function runInBatches(db: D1Database, statements: D1PreparedStatement[], size = 50): Promise<void> {
+export async function runInBatches(db: D1Database, statements: D1PreparedStatement[], size = 100): Promise<void> {
   for (let i = 0; i < statements.length; i += size) {
     await db.batch(statements.slice(i, i + size));
   }

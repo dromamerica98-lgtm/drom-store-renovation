@@ -33,6 +33,8 @@ export const MOCK_ATHLETE = {
   restingHr: 48,
   hrvMs: 62,
   sleepNeedSec: 7.6 * 3600,
+  /** ~4:45 /km; easy runs at ~5:45 /km sit in pace zone 2. */
+  thresholdPaceSecPerKm: 285,
   /** Upper bpm bound of zones 1–5. */
   zoneUpper: [131, 150, 163, 174, 188] as const,
   zoneMid: [118, 141, 157, 169, 180] as const,

@@ -101,6 +101,8 @@ HTTP request ─▶ routes (validate input, shape JSON)
 * **GarminProvider** returns *normalised* domain records. Swapping mock for
   live changes no other code.
 
+Endpoint reference: [API.md](API.md).
+
 ## 5. Key flows
 
 ### 5.1 Sync (cron + "Sync now")
@@ -179,7 +181,7 @@ the engine and its guardrails.
 | 2 | D1 schema, migrations, repository layer | done |
 | 3 | Garmin integration service: provider interface, mock provider, sync into D1 | done |
 | 4 | Deterministic readiness + recommendation engine | done |
-| 5 | PWA shell + **Today** screen on mock data | |
+| 5 | PWA shell + **Today** screen on mock data | done |
 | 6 | Live Garmin Personal API (token manager, client, response mappers) | |
 | 7 | Health screen (sleep, HRV, Body Battery, RHR, stress, trends) | |
 | 8 | Training screen (volume, intensity distribution, activity list/detail, FIT) | |

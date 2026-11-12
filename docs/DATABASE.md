@@ -1,6 +1,7 @@
 # Database (Cloudflare D1)
 
-Schema: [`apps/api/migrations/0001_initial.sql`](../apps/api/migrations/0001_initial.sql).
+Schema: [`apps/api/migrations/`](../apps/api/migrations/) —
+`0001_initial.sql` (everything below) and `0002_app_state.sql` (`app_state`).
 All SQL lives in `apps/api/src/db/` (repositories). Nothing else writes SQL.
 
 ## Design principles
@@ -90,7 +91,7 @@ provider re-sync never overwrites them (they are not in the upsert column list).
 
 | Table | Purpose |
 | --- | --- |
-| `daily_assessments` | One per date: readiness score/band/confidence, per-component breakdown, the baselines used, the full load model, flags. Load numbers (`daily_load`, `atl`, `ctl`, `tsb`, `acwr`) are also plain columns so Trends can chart them with SQL. `inputs_hash` lets the service skip recomputation when nothing changed. |
+| `daily_assessments` | One per date (written by `AssessmentRepository`): readiness score/band/confidence, per-component breakdown, the baselines used, the full load model, flags. Load numbers (`daily_load`, `atl`, `ctl`, `tsb`, `acwr`) are also plain columns so Trends can chart them with SQL. `inputs_hash` lets the service skip recomputation when nothing changed. |
 | `recommendations` | Every recommendation ever made. `origin = 'engine'` rows are the engine's own choice; `origin = 'modification'` rows point to their `parent_id` and record the `modification_kind` (+ minutes for *I only have X minutes*). A partial unique index guarantees **at most one `is_current` per date**. `status` / `completed_activity_id` link it to what you actually did. |
 
 ### Garmin connection and sync
@@ -100,6 +101,12 @@ provider re-sync never overwrites them (they are not in the upsert column list).
 | `garmin_credentials` | Singleton. Cached 24-hour access token (AES-GCM ciphertext + IV) and its expiry; the Personal API key's expiry date for a reminder. **The key itself is never stored in D1** — it is a Worker secret. |
 | `sync_state` | Per domain: newest/oldest synced date, last success, last error. Drives incremental sync and the Settings status panel. |
 | `sync_runs` | Audit log of each sync (trigger, provider, range, per-domain counts, error). |
+
+### App state
+
+| Table | Purpose |
+| --- | --- |
+| `app_state` | Small key/value store for app-level state that is not a user setting. Today: `mock_scenario`, so every sync in mock mode regenerates data for the same scenario the database was seeded with. |
 
 ### Coach
 
@@ -143,4 +150,9 @@ every file in `migrations/` in order to a fresh in-memory D1.
 through wrangler's `getPlatformProxy`, applies all migrations, and resets
 tables between tests. `schema.test.ts` checks constraints;
 `repositories.test.ts` checks round-trips, idempotent upserts, app-owned
-columns surviving re-syncs, cascade deletes and sync bookkeeping.
+columns surviving re-syncs, cascade deletes, sync bookkeeping and multi-row
+upserts staying under D1's 100-bound-parameter limit.
+
+Writes of many rows use multi-row `INSERT … VALUES (…), (…) ON CONFLICT …`
+statements packed under that limit, then sent in `db.batch()` groups (each
+batch is atomic).

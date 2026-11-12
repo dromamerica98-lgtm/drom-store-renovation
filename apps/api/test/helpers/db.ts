@@ -65,6 +65,7 @@ export async function createTestDb(): Promise<TestDb> {
 }
 
 const DATA_TABLES = [
+  'app_state',
   'coach_messages',
   'recommendations',
   'daily_assessments',

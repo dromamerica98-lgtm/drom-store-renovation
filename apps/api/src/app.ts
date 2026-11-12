@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { ENGINE_VERSION, localDate } from '@coach/engine';
-import type { ApiError, StatusResponse, SyncResultResponse, SyncStatusResponse } from '@coach/shared';
+import { ENGINE_VERSION, localDate, MODIFICATION_KINDS, type ModificationRequest } from '@coach/engine';
+import type { ApiError, StatusResponse, SyncResultResponse, SyncStatusResponse, TodayResponse } from '@coach/shared';
 import { repositories } from './db';
-import { clearGarminAndEngineData } from './db/maintenance';
 import { SYNC_DOMAINS } from './domain/records';
 import type { Env } from './env';
-import { createProvider, GarminProviderError, isMockScenario } from './garmin';
+import { GarminProviderError, isMockScenario, providerFor, seedMockData } from './garmin';
 import { SyncService } from './garmin/sync';
+import { TodayService } from './services/today';
 
 export interface AppOptions {
   /** Injectable clock for tests. */
@@ -51,7 +51,7 @@ export function createApp(options: AppOptions = {}) {
     const repos = repositories(c.env.DB);
     const settings = await repos.settings.get();
     const today = localDate(now(), settings.timezone);
-    const result = await new SyncService(repos, createProvider(c.env, today), now).run({ trigger: 'manual', today });
+    const result = await new SyncService(repos, await providerFor(repos, c.env, today), now).run({ trigger: 'manual', today });
     return c.json<SyncResultResponse>(result, result.status === 'error' ? 502 : 200);
   });
 
@@ -99,16 +99,38 @@ export function createApp(options: AppOptions = {}) {
     }
     const repos = repositories(c.env.DB);
     const settings = await repos.settings.get();
-    const today = localDate(now(), settings.timezone);
-    await clearGarminAndEngineData(c.env.DB);
-    const result = await new SyncService(repos, createProvider(c.env, today, scenario), now).run({
-      trigger: 'backfill',
-      today,
-      historyDays: 120,
-      initialDays: 120,
-      backfillChunkDays: 120,
-    });
+    const result = await seedMockData(repos, c.env, localDate(now(), settings.timezone), now, scenario);
     return c.json<SyncResultResponse>(result);
+  });
+
+  // --- Today ---------------------------------------------------------------
+
+  app.get('/today', async (c) => {
+    const body = await new TodayService(repositories(c.env.DB), c.env, now).get();
+    return c.json<TodayResponse>(body);
+  });
+
+  app.post('/today/modify', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { kind?: unknown; minutes?: unknown } | null;
+    const kind = body?.kind;
+    if (typeof kind !== 'string' || !(MODIFICATION_KINDS as readonly string[]).includes(kind)) {
+      return c.json(apiError('bad_request', `kind must be one of: ${MODIFICATION_KINDS.join(', ')}`), 400);
+    }
+    const request: ModificationRequest = { kind: kind as ModificationRequest['kind'] };
+    if (kind === 'time_limit') {
+      const minutes = body?.minutes;
+      if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 5 || minutes > 600) {
+        return c.json(apiError('bad_request', 'minutes must be an integer between 5 and 600'), 400);
+      }
+      request.minutes = minutes;
+    }
+    const result = await new TodayService(repositories(c.env.DB), c.env, now).modify(request);
+    return c.json<TodayResponse>(result);
+  });
+
+  app.post('/today/reset', async (c) => {
+    const body = await new TodayService(repositories(c.env.DB), c.env, now).reset();
+    return c.json<TodayResponse>(body);
   });
 
   app.notFound((c) => c.json(apiError('not_found', 'No such endpoint'), 404));

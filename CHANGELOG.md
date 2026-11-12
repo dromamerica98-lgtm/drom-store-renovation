@@ -7,6 +7,42 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Stage 5 — Today screen (PWA) on mock data
+#### Added
+- API: `GET /api/today`, `POST /api/today/modify`, `POST /api/today/reset`
+  via `TodayService` (load history → engine → persist assessment and
+  recommendation → DTO). Recommendations are reused while the engine's inputs
+  hash is unchanged, so user modifications survive reloads; new data produces
+  a fresh recommendation. Modification lineage is stored (`parent_id`).
+- Repositories for `daily_assessments` and `recommendations`.
+- Migration `0002_app_state.sql`: key/value `app_state`; mock mode remembers
+  its seeded scenario so later syncs stay consistent.
+- Mock mode seeds 120 days automatically on first load and fills in a demo
+  athlete profile (max HR, threshold pace, long-run day) where unset.
+- PWA: web manifest, icons (192/512/maskable/Apple touch, generated from SVG),
+  iOS standalone meta tags and safe-area insets, service worker (offline app
+  shell, last Today response available offline and labelled as such),
+  Cloudflare Pages `_headers`.
+- App shell: bottom tab bar on phones (Today, Health, Training, Coach, Trends;
+  Settings in the header), side rail on desktop, light and dark themes from a
+  validated palette; placeholder screens describing upcoming stages.
+- Today screen: readiness score with band and meter, sleep / HRV / Body
+  Battery / resting HR against your baseline, training load (ACWR) and form,
+  yesterday's workout, weekly volume and 28-day intensity split, structured
+  workout (timeline, steps with HR zone, bpm, pace and RPE), adjust controls
+  (shorter, easier, harder with lock + reasons, "I only have…", rest day,
+  alternative, undo), and "Why this workout" with the numbers behind it.
+- Demo-data scenario switcher in the footer (mock mode only).
+- `docs/API.md`; web unit tests; Today API tests.
+
+#### Changed
+- Multi-row upserts packed under D1's 100-parameter limit (fewer statements;
+  test suite 55 s → 21 s).
+
+#### Fixed
+- First Today load read settings before auto-seeding, so the second load
+  issued a different recommendation.
+
 ### Stage 4 — Deterministic readiness & recommendation engine
 #### Added
 - `@coach/engine` 1.0.0, pure and deterministic (no I/O, clock or randomness):

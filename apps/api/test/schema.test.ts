@@ -16,7 +16,7 @@ describe('migration splitter', () => {
   });
 });
 
-describe('schema 0001', () => {
+describe('schema', () => {
   it('creates every table and the engine view', async () => {
     const { results } = await t.db
       .prepare("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE '\\_%' ESCAPE '\\' AND name NOT LIKE 'sqlite%' ORDER BY name")
@@ -24,6 +24,7 @@ describe('schema 0001', () => {
     expect(results.map((r) => r.name)).toEqual([
       'activities',
       'activity_details',
+      'app_state',
       'body_battery_daily',
       'coach_messages',
       'daily_assessments',
