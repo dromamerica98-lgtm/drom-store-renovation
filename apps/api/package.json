@@ -1,0 +1,25 @@
+{
+  "name": "@coach/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker: JSON API, Garmin sync (cron) and D1 access.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply coach-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply coach-db --remote"
+  },
+  "dependencies": {
+    "@coach/engine": "0.1.0",
+    "@coach/shared": "0.1.0",
+    "hono": "^4.13.18"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261112.1",
+    "miniflare": "^5.20261110.1-beta",
+    "wrangler": "^4.160.1"
+  }
+}

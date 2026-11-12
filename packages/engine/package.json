@@ -1,0 +1,14 @@
+{
+  "name": "@coach/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic readiness and training-recommendation engine. Pure TypeScript, no I/O.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  }
+}

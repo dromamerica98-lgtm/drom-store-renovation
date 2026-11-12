@@ -1,0 +1,25 @@
+{
+  "name": "coach",
+  "private": true,
+  "type": "module",
+  "description": "Personal AI training coach built on Garmin data (Cloudflare Pages + Workers + D1).",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run test",
+    "dev:api": "npm run dev --workspace @coach/api",
+    "dev:web": "npm run dev --workspace @coach/web",
+    "build": "npm run build --workspace @coach/web"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

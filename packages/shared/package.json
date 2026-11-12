@@ -1,0 +1,16 @@
+{
+  "name": "@coach/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API contract types shared by the Worker API and the web app.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@coach/engine": "0.1.0"
+  }
+}

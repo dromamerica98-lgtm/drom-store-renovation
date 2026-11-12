@@ -1,0 +1,24 @@
+{
+  "name": "@coach/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mobile-first installable PWA, deployed to Cloudflare Pages.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json && tsc -p functions/tsconfig.json",
+    "deploy": "npm run build && wrangler pages deploy"
+  },
+  "dependencies": {
+    "@coach/shared": "0.1.0",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261112.1",
+    "@preact/preset-vite": "^2.10.6",
+    "vite": "^8.3.8",
+    "wrangler": "^4.160.1"
+  }
+}

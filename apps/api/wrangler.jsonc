@@ -1,0 +1,28 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "coach-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // The API has no public URL. It is reached only through the Pages
+  // project's service binding (apps/web/functions/api/[[path]].ts).
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "coach-db",
+      // Replace with the id printed by `wrangler d1 create coach-db`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // "mock" until Stage 6 connects the live Garmin Personal API.
+    "GARMIN_MODE": "mock",
+    // normal | fatigued | well_rested | illness  (mock mode only)
+    "MOCK_SCENARIO": "normal"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
