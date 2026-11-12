@@ -124,7 +124,7 @@ max HR 188, resting HR ≈ 48, HRV ≈ 62 ms, sleep need 7.6 h, and a weekly pla
 | --- | --- | --- |
 | `normal` | The plain weekly pattern | Depends on the day |
 | `well_rested` | Two rest days, great sleep, HRV up | Quality session allowed |
-| `fatigued` | Four hard days in a row, short sleep, HRV down, RHR up | Recovery or rest |
+| `fatigued` | Four hard days in a row, short-ish sleep, HRV −12 %, RHR +3 bpm, high load | Recovery |
 | `illness` | RHR +10 bpm, HRV −38 %, poor sleep, high stress | Rest |
 | `calibrating` | Only 7 days of history | Low confidence, conservative plan |
 

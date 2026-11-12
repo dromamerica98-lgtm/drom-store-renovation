@@ -129,7 +129,7 @@ function scenarioMorning(scenario: MockScenario, offset: number, m: Morning): Mo
     return { ...m, rhr: MOCK_ATHLETE.restingHr - 2, hrv: MOCK_ATHLETE.hrvMs * 1.12, sleepSec: 8.4 * 3600, sleepScore: 91, bbWake: 94, stress: 19 };
   }
   if (scenario === 'fatigued' && offset <= 1) {
-    return { ...m, rhr: m.rhr + 5, hrv: m.hrv * 0.8, sleepSec: 5.7 * 3600, sleepScore: 56, bbWake: 31, stress: m.stress + 14 };
+    return { ...m, rhr: MOCK_ATHLETE.restingHr + 3, hrv: MOCK_ATHLETE.hrvMs * 0.88, sleepSec: 6.3 * 3600, sleepScore: 64, bbWake: 44, stress: m.stress + 6 };
   }
   if (scenario === 'illness' && offset === 0) {
     return { ...m, rhr: MOCK_ATHLETE.restingHr + 10, hrv: MOCK_ATHLETE.hrvMs * 0.62, sleepSec: 6.1 * 3600, sleepScore: 49, bbWake: 21, stress: 49 };

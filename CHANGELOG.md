@@ -7,6 +7,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Stage 4 — Deterministic readiness & recommendation engine
+#### Added
+- `@coach/engine` 1.0.0, pure and deterministic (no I/O, clock or randomness):
+  - Personal baselines: 42-day window, ≥ 14 days to trust, log-HRV, SD floors.
+  - Readiness 0–100 from HRV, sleep, resting HR, Body Battery and stress
+    z-scores vs. your baseline; confidence; bands; fallbacks while calibrating.
+  - Flags: illness pattern, elevated RHR, suppressed/trending-low HRV, short
+    sleep, low Body Battery, high stress, load spike/high/low, hard-day streaks,
+    rest overdue, missing overnight data, calibrating.
+  - Training load: Edwards/Banister TRIMP, ATL/CTL/TSB/ACWR, weekly volume,
+    28-day intensity distribution, streaks and quality-type history.
+  - Ordered decision rules R1–R9 with a low-confidence guard; goal-based
+    quality rotation; duration rules incl. ~10 % long-run progression.
+  - Structured workouts: warm-up, main set, repeat blocks with recoveries,
+    cool-down; HR zone + bpm, pace (running), RPE and effort cues.
+  - Modifications: shorter, easier, harder (guarded), "I only have X minutes",
+    rest day, alternative modality — chainable, with reasons on refusal.
+  - Machine-readable reason codes + deterministic sentences and summary;
+    `inputsHash` and `ENGINE_VERSION` for auditability.
+- 75 engine unit tests covering every rule and modification.
+- `docs/ENGINE.md` incl. the contract for the future AI layer.
+
+#### Changed
+- Mock `fatigued` scenario softened so it demonstrates the recovery path
+  rather than the illness path.
+
 ### Stage 3 — Garmin integration service
 #### Added
 - `GarminProvider` interface: the only boundary between Garmin and the rest
