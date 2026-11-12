@@ -16,6 +16,10 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Hourly Garmin sync, off the top of the hour.
+  "triggers": {
+    "crons": ["17 * * * *"]
+  },
   "vars": {
     // "mock" until Stage 6 connects the live Garmin Personal API.
     "GARMIN_MODE": "mock",

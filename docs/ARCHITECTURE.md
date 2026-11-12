@@ -177,7 +177,7 @@ the engine and its guardrails.
 | --- | --- | --- |
 | 1 | Architecture, monorepo, tooling, CI | done |
 | 2 | D1 schema, migrations, repository layer | done |
-| 3 | Garmin integration service: provider interface, mock provider, sync into D1 | |
+| 3 | Garmin integration service: provider interface, mock provider, sync into D1 | done |
 | 4 | Deterministic readiness + recommendation engine | |
 | 5 | PWA shell + **Today** screen on mock data | |
 | 6 | Live Garmin Personal API (token manager, client, response mappers) | |

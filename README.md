@@ -44,6 +44,7 @@ docs/           Architecture and design documents
 
 * [Architecture](docs/ARCHITECTURE.md) — components, flows, security, decisions
 * [Database](docs/DATABASE.md) — D1 schema, conventions, migrations
+* [Garmin integration](docs/GARMIN_INTEGRATION.md) — Personal API, provider boundary, sync, mock scenarios
 * [CHANGELOG](CHANGELOG.md)
 
 ## Development

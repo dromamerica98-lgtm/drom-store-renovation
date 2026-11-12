@@ -7,6 +7,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Stage 3 — Garmin integration service
+#### Added
+- `GarminProvider` interface: the only boundary between Garmin and the rest
+  of the app; returns normalised records with the raw payload attached.
+- `MockGarminProvider`: deterministic simulated athlete (weekly training
+  pattern, physiological response to load) with scenarios `normal`,
+  `well_rested`, `fatigued`, `illness`, `calibrating`.
+- `SyncService`: per-domain recent window with 3-day overlap, chunked
+  backfill toward 180 days, bounded activity-detail fetches, intraday curves,
+  per-domain error isolation, run log.
+- Routes: `POST /api/sync`, `GET /api/sync/status`, and (mock mode only)
+  `POST /api/dev/mock/reset` to re-seed a scenario.
+- Hourly cron trigger running the same sync.
+- CSRF guard: state-changing requests must be `application/json`.
+- Calendar-date utilities in `@coach/engine` (DST-safe, timezone-aware today).
+- `docs/GARMIN_INTEGRATION.md`: Personal API facts (key → 24 h token, GET-only),
+  endpoint catalogue to verify, sync strategy, error handling, Stage 6 plan.
+
 ### Stage 2 — D1 database schema
 #### Added
 - Migration `0001_initial.sql`: settings + training zones; one source table per
