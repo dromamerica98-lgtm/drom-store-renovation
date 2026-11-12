@@ -43,6 +43,7 @@ docs/           Architecture and design documents
 ## Documentation
 
 * [Architecture](docs/ARCHITECTURE.md) — components, flows, security, decisions
+* [Database](docs/DATABASE.md) — D1 schema, conventions, migrations
 * [CHANGELOG](CHANGELOG.md)
 
 ## Development

@@ -176,7 +176,7 @@ the engine and its guardrails.
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 1 | Architecture, monorepo, tooling, CI | done |
-| 2 | D1 schema, migrations, repository layer | |
+| 2 | D1 schema, migrations, repository layer | done |
 | 3 | Garmin integration service: provider interface, mock provider, sync into D1 | |
 | 4 | Deterministic readiness + recommendation engine | |
 | 5 | PWA shell + **Today** screen on mock data | |
