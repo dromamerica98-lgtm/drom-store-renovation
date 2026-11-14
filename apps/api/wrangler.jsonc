@@ -18,8 +18,8 @@
     {
       "binding": "DB",
       "database_name": "garmin-coach-db",
-      // Set after `wrangler d1 create garmin-coach-db` (see docs/DEPLOYMENT.md).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Created 2026-11-14 in EEUR (see docs/DEPLOYMENT.md).
+      "database_id": "194be2cf-f93b-4311-98d1-33dd57df2c5e",
       "migrations_dir": "migrations"
     }
   ],
