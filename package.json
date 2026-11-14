@@ -13,7 +13,8 @@
     "check": "npm run typecheck && npm run test",
     "dev:api": "npm run dev --workspace @coach/api",
     "dev:web": "npm run dev --workspace @coach/web",
-    "build": "npm run build --workspace @coach/web"
+    "build": "npm run build --workspace @coach/web",
+    "deploy": "npm run deploy --workspace @coach/api"
   },
   "engines": {
     "node": ">=22"

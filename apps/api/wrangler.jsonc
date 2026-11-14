@@ -1,17 +1,24 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "coach-api",
+  // One Worker serves the PWA (static assets), the JSON API under /api/* and
+  // the hourly Garmin sync. Cloudflare Access protects the whole hostname and
+  // the Worker verifies the Access JWT itself on every /api request.
+  "name": "garmin-personal-coach",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
-  // The API has no public URL. It is reached only through the Pages
-  // project's service binding (apps/web/functions/api/[[path]].ts).
-  "workers_dev": false,
+  "workers_dev": true,
+  // No per-version preview hostnames: they would sit outside the Access app.
   "preview_urls": false,
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "coach-db",
-      // Replace with the id printed by `wrangler d1 create coach-db`.
+      "database_name": "garmin-coach-db",
+      // Set after `wrangler d1 create garmin-coach-db` (see docs/DEPLOYMENT.md).
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
@@ -21,10 +28,12 @@
     "crons": ["17 * * * *"]
   },
   "vars": {
-    // "mock" until Stage 6 connects the live Garmin Personal API.
+    // "mock" until the live Garmin Personal API is connected.
     "GARMIN_MODE": "mock",
-    // normal | fatigued | well_rested | illness  (mock mode only)
+    // normal | well_rested | fatigued | illness | calibrating  (mock mode only)
     "MOCK_SCENARIO": "normal"
+    // ACCESS_TEAM_DOMAIN, ACCESS_AUD and OWNER_EMAIL are Worker secrets, set at
+    // deploy time, so no account details or personal data live in the repo.
   },
   "observability": {
     "enabled": true

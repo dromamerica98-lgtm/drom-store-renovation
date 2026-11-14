@@ -17,6 +17,7 @@ export default {
     const today = localDate(new Date(), settings.timezone);
     ctx.waitUntil(
       new SyncService(repos, await providerFor(repos, env, today)).run({ trigger: 'cron', today }).then((r) => {
+        // Messages are already sanitized by SyncService.
         if (r.status !== 'success') console.warn('Garmin sync finished with errors', r.errors);
       }),
     );

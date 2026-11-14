@@ -14,6 +14,7 @@ import { addDays, maxDate, minDate, type IsoDate } from '@coach/engine';
 import type { Repositories } from '../db';
 import type { SyncState, SyncTrigger } from '../db/sync';
 import type { SyncDomain, WriteMeta } from '../domain/records';
+import { errorMessage } from '../security';
 import type { DateRange, GarminProvider } from './provider';
 
 export interface SyncOptions {
@@ -57,7 +58,8 @@ const DAILY_DOMAINS: Array<{
   { domain: 'activities', fetchAndStore: async (p, r, range, m) => r.activities.upsertMany(await p.activities(range), m) },
 ];
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Error text safe to store and show: secrets, tokens and emails removed. */
+const message = (e: unknown) => errorMessage(e);
 
 /** Splits [from, to] into windows of at most `size` days, newest first. */
 export function chunkRange(range: DateRange, size: number): DateRange[] {

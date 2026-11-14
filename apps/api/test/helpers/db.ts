@@ -61,7 +61,10 @@ export async function createTestDb(): Promise<TestDb> {
     persist: false,
   });
   await applyMigrations(env.DB);
-  return { db: env.DB, env, dispose };
+  // Route tests run on http://localhost, where the local-dev Access bypass applies.
+  // Real Access verification is covered in auth.test.ts.
+  const testEnv = Object.assign(Object.create(Object.getPrototypeOf(env)), env, { ACCESS_DEV_BYPASS: '1' }) as Env;
+  return { db: env.DB, env: testEnv, dispose };
 }
 
 const DATA_TABLES = [

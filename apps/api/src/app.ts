@@ -1,16 +1,20 @@
 import { Hono } from 'hono';
 import { ENGINE_VERSION, localDate, MODIFICATION_KINDS, type ModificationRequest } from '@coach/engine';
 import type { ApiError, StatusResponse, SyncResultResponse, SyncStatusResponse, TodayResponse } from '@coach/shared';
+import { AccessDenied, isLocalDevBypass, verifyAccessJwt } from './auth/access';
 import { repositories } from './db';
 import { SYNC_DOMAINS } from './domain/records';
 import type { Env } from './env';
 import { GarminProviderError, isMockScenario, providerFor, seedMockData } from './garmin';
 import { SyncService } from './garmin/sync';
+import { sanitizeMessage } from './security';
 import { TodayService } from './services/today';
 
 export interface AppOptions {
   /** Injectable clock for tests. */
   now?: () => Date;
+  /** Injectable fetch for the Access key set (tests). */
+  accessFetcher?: (url: string) => Promise<Response>;
 }
 
 type AppEnv = { Bindings: Env };
@@ -22,6 +26,35 @@ function apiError(code: string, message: string): ApiError {
 export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
   const app = new Hono<AppEnv>().basePath('/api');
+
+  // Personal health data: never stored by the browser, the service worker or
+  // any intermediary.
+  app.use('*', async (c, next) => {
+    await next();
+    c.header('Cache-Control', 'no-store, private');
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Referrer-Policy', 'same-origin');
+  });
+
+  // Authentication: a valid Cloudflare Access JWT for the owner on every
+  // request, in addition to Access at the edge. Fails closed.
+  app.use('*', async (c, next) => {
+    if (isLocalDevBypass(c.req.url, c.env.ACCESS_DEV_BYPASS)) return next();
+    try {
+      await verifyAccessJwt(
+        c.req.header('cf-access-jwt-assertion'),
+        { teamDomain: c.env.ACCESS_TEAM_DOMAIN ?? '', audience: c.env.ACCESS_AUD ?? '', ownerEmail: c.env.OWNER_EMAIL ?? '' },
+        { now: () => now().getTime(), ...(options.accessFetcher ? { fetcher: options.accessFetcher } : {}) },
+      );
+    } catch (e) {
+      if (e instanceof AccessDenied) {
+        console.warn('API request rejected', { reason: e.reason, path: new URL(c.req.url).pathname });
+        return c.json(apiError('unauthorized', 'Sign in required'), 401);
+      }
+      throw e;
+    }
+    return next();
+  });
 
   // CSRF guard: state-changing requests must be JSON. Browsers cannot send a
   // cross-site JSON POST without a CORS preflight, which this API never allows.
@@ -137,9 +170,10 @@ export function createApp(options: AppOptions = {}) {
 
   app.onError((err, c) => {
     if (err instanceof GarminProviderError) {
-      return c.json(apiError('garmin_unavailable', err.message), 503);
+      return c.json(apiError('garmin_unavailable', sanitizeMessage(err.message)), 503);
     }
-    console.error('Unhandled API error', err);
+    // Log the type and a sanitized message only — never request bodies, headers or secrets.
+    console.error('Unhandled API error', { name: err.name, message: sanitizeMessage(err.message) });
     return c.json(apiError('internal', 'Internal error'), 500);
   });
 

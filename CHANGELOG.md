@@ -7,6 +7,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Stage 6A — Private deployment readiness
+#### Changed
+- **One Worker** (`garmin-personal-coach`) now serves the PWA (Workers Static
+  Assets), the API under `/api/*` and the cron sync. The Pages project and its
+  `/api` proxy function were removed (the account token cannot manage Pages;
+  one origin and one Access application are simpler and safer).
+- Resource names: Worker `garmin-personal-coach`, D1 `garmin-coach-db`.
+- The service worker no longer stores any API response (cache `coach-v2`
+  deletes older caches, including any health data they held).
+
+#### Added
+- Worker-side **Cloudflare Access JWT verification** on every `/api/*`
+  request: RS256 signature against the team keys (cached, refreshed on key
+  rotation), audience, issuer, expiry/not-before, owner email. Fails closed
+  when unconfigured; unauthenticated callers get a generic `401` for every
+  path. Local-dev bypass works only on `localhost` with `ACCESS_DEV_BYPASS=1`.
+- `Cache-Control: no-store, private` on all API responses.
+- Strict CSP, HSTS, `X-Frame-Options`, `Permissions-Policy` for the PWA.
+- Manifest requested with credentials so installation works behind Access.
+- *Sign in again* when the Access session expires; *Sign out* clears caches
+  and ends the Access session.
+- "Demo data" banner in mock mode; readiness labelled *app-derived · not a
+  Garmin score* with a not-medical-advice note.
+- `sanitizeMessage`: strips keys, bearer/JWT tokens, `token=` pairs, long
+  opaque strings and emails from stored, logged and returned errors.
+- `docs/DEPLOYMENT.md`: resources, security model, first deployment,
+  verification checklist, rollback and removal.
+- Tests: Access JWT (valid, forged signature, wrong audience/issuer/email,
+  expired, not-yet-valid, `alg: none`, key rotation, unconfigured), API
+  authentication and headers, error sanitization.
+
 ### Stage 5 — Today screen (PWA) on mock data
 #### Added
 - API: `GET /api/today`, `POST /api/today/modify`, `POST /api/today/reset`

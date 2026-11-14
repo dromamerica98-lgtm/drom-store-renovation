@@ -142,8 +142,8 @@ curl -X POST http://127.0.0.1:8787/api/dev/mock/reset -H 'content-type: applicat
   never in the web bundle.
 * Access token: encrypted at rest (AES-GCM, key from a separate Worker
   secret), never returned by any endpoint, never logged.
-* The API Worker has no public URL; only the Access-protected Pages origin
-  reaches it.
+* Every `/api/*` request needs Cloudflare Access at the edge and a valid owner
+  Access JWT checked by the Worker itself.
 * Logs contain domain names, status codes and counts — never tokens or
   health payloads.
 

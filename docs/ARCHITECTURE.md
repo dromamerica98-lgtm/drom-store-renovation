@@ -8,7 +8,7 @@ explains that decision and answers questions about it, but never makes it.
 
 | Constraint | How the architecture honours it |
 | --- | --- |
-| Installable PWA, iPhone first, desktop too | Static Preact app on Cloudflare Pages with a web manifest, service worker and iOS meta tags. Mobile layout first, widened with CSS breakpoints. |
+| Installable PWA, iPhone first, desktop too | Static Preact app served by the Worker (Workers Static Assets) with a web manifest, service worker and iOS meta tags. Mobile layout first, widened with CSS breakpoints. |
 | Garmin key never in frontend code | The key is a Worker secret. Only the API Worker talks to Garmin. The browser receives normalised, already-stored data. |
 | Deterministic recommendations | `packages/engine` is pure TypeScript: same inputs → same output, with a version stamp. The LLM receives the engine's output and may only pick from the engine's own modification operations. |
 | Compare against *your* baseline | Every metric is stored historically in D1. The engine computes rolling personal baselines (mean, SD, z-score) instead of population norms. |
@@ -24,10 +24,9 @@ flowchart LR
   end
 
   subgraph CF["Cloudflare"]
-    Access["Cloudflare Access<br/>(single-user login)"]
-    Pages["Pages<br/>static assets"]
-    Fn["Pages Function<br/>/api/* proxy"]
-    API["API Worker (Hono)<br/>routes · services · engine"]
+    Access["Cloudflare Access<br/>(owner-only login)"]
+    Assets["Static assets<br/>(PWA build)"]
+    API["Worker garmin-personal-coach (Hono)<br/>JWT check · routes · services · engine"]
     Cron["Cron trigger"]
     D1[("D1<br/>history · baselines · recommendations")]
   end
@@ -35,23 +34,29 @@ flowchart LR
   Garmin["Garmin Personal API<br/>personal.connectapi.garmin.com"]
   LLM["LLM provider<br/>(Coach stage)"]
 
-  PWA -->|HTTPS| Access --> Pages
-  Access --> Fn -->|service binding| API
+  PWA -->|HTTPS| Access --> Assets
+  Access -->|/api/* + Access JWT| API
   Cron --> API
   API <--> D1
   API -->|ApiKey → 24h token<br/>GET only| Garmin
   API -.->|metrics + engine output| LLM
 ```
 
-### Why Pages **and** a separate Worker
+### One Worker
 
-* **Pages** serves the static PWA and gives us preview deployments per branch.
-* **Cron triggers only exist on Workers**, and Garmin sync must run on a
-  schedule, so the API lives in a standalone Worker (`coach-api`).
-* The API Worker has **no public URL** (`workers_dev: false`, no routes). The
-  Pages Function `functions/api/[[path]].ts` forwards `/api/*` over a
-  **service binding**. Result: one origin for the browser (no CORS, Access
-  cookie covers everything), and the API cannot be reached around Access.
+A single Worker (`garmin-personal-coach`) serves the PWA as static assets,
+the API under `/api/*` (`run_worker_first`) and the hourly cron sync.
+
+* **One origin** for the browser: no CORS, and one Access application covers
+  the app, the API, the manifest and the icons.
+* **Cron triggers only exist on Workers**, so the sync needs a Worker anyway.
+* **Two layers of authentication**: Access at the edge, plus the Worker's own
+  check of the Access JWT (signature, audience, issuer, expiry, owner email)
+  on every `/api/*` request. See [DEPLOYMENT.md](DEPLOYMENT.md#security-model).
+* Stages 1–5 used Cloudflare Pages + a separate API Worker over a service
+  binding. Stage 6 moved to one Worker because the account's API token cannot
+  manage Pages, the setup is simpler, and the same pattern already runs in
+  this account.
 
 ## 3. Repository layout
 
@@ -67,8 +72,7 @@ flowchart LR
 │   │   │   ├── garmin/      provider interface, mock provider, live client (Stage 6), sync
 │   │   │   └── services/    use-cases: load history → run engine → persist
 │   │   └── test/            vitest + real local D1 via wrangler getPlatformProxy
-│   └── web/                 Cloudflare Pages project
-│       ├── functions/api/   Pages Function → service binding proxy
+│   └── web/                 PWA (built into apps/web/dist, served by the Worker)
 │       ├── public/          manifest, service worker, icons
 │       └── src/             Preact app (Today, Health, Training, Coach, Trends, Settings)
 ├── packages/
@@ -157,8 +161,9 @@ the engine and its guardrails.
 | --- | --- |
 | Garmin Personal API key | Worker secret (`wrangler secret put GARMIN_PERSONAL_API_KEY`). Never logged, never returned by any endpoint. Settings shows only connection status and key expiry. |
 | Garmin access token (24 h) | Stored only in D1, AES-GCM encrypted with a separate Worker secret (Stage 6). |
-| Health data in D1 | Only the API Worker has the D1 binding. The Worker has no public route. |
-| The app itself | Cloudflare Access policy on the Pages domain (one allowed email / passkey). |
+| Health data in D1 | Only the Worker has the D1 binding; every `/api/*` request needs a valid owner Access JWT. |
+| Health data on the device | API responses are `no-store`; the service worker never caches `/api/*`; *Sign out* clears caches. |
+| The app itself | Cloudflare Access application on the Worker hostname (owner email only); no preview URLs, no routes, no custom domain. |
 | LLM calls (later) | Server-side only; key is a Worker secret; only derived metrics are sent, never the Garmin key or token. |
 
 ## 7. Conventions
@@ -182,7 +187,7 @@ the engine and its guardrails.
 | 3 | Garmin integration service: provider interface, mock provider, sync into D1 | done |
 | 4 | Deterministic readiness + recommendation engine | done |
 | 5 | PWA shell + **Today** screen on mock data | done |
-| 6 | Live Garmin Personal API (token manager, client, response mappers) | |
+| 6 | Private deployment (6A), live Garmin Personal API (6B), personalisation (6C), Garmin suggested-workout comparison (6D) | in progress |
 | 7 | Health screen (sleep, HRV, Body Battery, RHR, stress, trends) | |
 | 8 | Training screen (volume, intensity distribution, activity list/detail, FIT) | |
 | 9 | Trends screen (long-term recovery, fitness and load) | |
@@ -193,7 +198,8 @@ the engine and its guardrails.
 
 | Decision | Alternatives considered | Why |
 | --- | --- | --- |
-| Pages + standalone Worker over service binding | Pages Functions only; single Worker with static assets | Cron needs a Worker; binding keeps one origin and hides the API. A single Worker with assets would also work and is a reasonable later simplification. |
+| One Worker with static assets (Stage 6) | Pages + Worker over a service binding (Stages 1–5) | One origin and one Access app; cron needs a Worker; the account token cannot manage Pages; same pattern already proven in the account. |
+| Worker verifies the Access JWT itself | Trust Access at the edge only | Defence in depth: a misconfigured or removed Access policy still exposes nothing. |
 | Hono for routing | Hand-rolled router, itty-router | Small, typed, runs on Workers and in Node tests unchanged. |
 | Preact + hand-written service worker | React, vite-plugin-pwa | ~10 kB runtime suits a phone; the SW is ~60 lines we fully control (iOS PWA quirks). |
 | One D1 table per Garmin domain + view | One wide `daily_metrics` table | Each Garmin endpoint syncs independently and keeps its raw payload; the `v_daily_metrics` view gives the engine one row per day. |

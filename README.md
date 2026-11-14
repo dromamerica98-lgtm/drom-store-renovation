@@ -23,7 +23,7 @@ Built in small, tested stages — see [CHANGELOG.md](CHANGELOG.md).
 | 3 | Garmin integration service (provider boundary, mock provider, sync) | ✅ |
 | 4 | Deterministic readiness + recommendation engine | ✅ |
 | 5 | PWA shell + **Today** screen on mock data | ✅ |
-| 6 | Live Garmin Personal API | next |
+| 6 | Private deployment, live Garmin Personal API, personalisation, Garmin workout comparison | in progress |
 | 7–11 | Health, Training, Trends, Settings, Coach (AI) | planned |
 
 **Today** shows readiness 0–100, sleep, HRV, Body Battery, resting HR,
@@ -37,15 +37,15 @@ or an alternative — every change goes through the engine.
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | Preact + Vite, PWA (manifest + service worker), Cloudflare Pages |
-| API | Cloudflare Worker with Hono, reached via a Pages service binding (no public URL) |
+| Frontend | Preact + Vite, PWA (manifest + service worker), served by the Worker (Workers Static Assets) |
+| API | Same Cloudflare Worker (Hono) under `/api/*`; Cloudflare Access + the Worker's own Access-JWT check |
 | Database | Cloudflare D1 (SQLite) |
 | Data source | Garmin Connect Personal API — server-side only (Stage 6); mock provider until then |
 | Engine | `@coach/engine` — pure TypeScript, 75 unit tests |
 
 ```
-apps/api         Cloudflare Worker: API, Garmin sync (cron), D1 access
-apps/web         PWA deployed to Cloudflare Pages (+ /api proxy function)
+apps/api         Cloudflare Worker: serves the PWA, API, Garmin sync (cron), D1 access
+apps/web         PWA source (built into apps/web/dist)
 packages/engine  Deterministic readiness + recommendation engine
 packages/shared  API contract types
 docs/            Design documents
@@ -58,6 +58,7 @@ docs/            Design documents
 * [Garmin integration](docs/GARMIN_INTEGRATION.md) — Personal API, provider boundary, sync, mock scenarios
 * [Engine](docs/ENGINE.md) — baselines, readiness, load, decision rules, workouts, modifications, AI contract
 * [API](docs/API.md) — endpoints and payloads
+* [Deployment](docs/DEPLOYMENT.md) — resources, security model, deploy, verify, rollback
 * [CHANGELOG](CHANGELOG.md)
 
 ## Run it locally
@@ -69,16 +70,20 @@ npm install
 ```
 
 ```bash
+cp apps/api/.dev.vars.example apps/api/.dev.vars
+```
+
+```bash
 npm run db:migrate:local -w @coach/api
 ```
 
-In one terminal, the API Worker (local D1, on http://127.0.0.1:8787):
+In one terminal, the Worker (builds the PWA, serves it and the API with a local D1 on http://127.0.0.1:8787):
 
 ```bash
 npm run dev:api
 ```
 
-In another, the PWA (http://localhost:5173, proxies `/api` to the Worker):
+Optionally, in another, the PWA with hot reload (http://localhost:5173, proxies `/api` to the Worker):
 
 ```bash
 npm run dev:web
@@ -104,59 +109,28 @@ npm run build        # production build of the PWA
 
 ## Deploy to Cloudflare
 
-One-time setup (Wrangler will ask you to log in):
-
-1. Create the database and put its id into `apps/api/wrangler.jsonc`
-   (`d1_databases[0].database_id`):
-
-   ```bash
-   npx wrangler d1 create coach-db
-   ```
-
-2. Apply migrations to the remote database:
-
-   ```bash
-   npm run db:migrate:remote -w @coach/api
-   ```
-
-3. Deploy the API Worker (it has no public URL by design):
-
-   ```bash
-   npm run deploy -w @coach/api
-   ```
-
-4. Create the Pages project and deploy the PWA. `apps/web/wrangler.jsonc`
-   binds `/api/*` to the `coach-api` Worker:
-
-   ```bash
-   npx wrangler pages project create coach-web --production-branch main
-   ```
-
-   ```bash
-   npm run deploy -w @coach/web
-   ```
-
-5. Protect the site with **Cloudflare Access** (Zero Trust → Access →
-   Applications → Self-hosted): add `coach-web.pages.dev` (and any custom
-   domain / preview subdomains) with a policy that allows only your email.
-   This is the app's login; the API is only reachable through it.
-
-6. On the iPhone: open the site in Safari → Share → **Add to Home Screen**.
-
-The Garmin key is not needed until Stage 6. When it is, it goes in as a Worker
-secret — never in code, config or the browser:
+One Worker (`garmin-personal-coach`) with its own D1 database
+(`garmin-coach-db`) and its own Cloudflare Access application. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the resources, first-time setup,
+verification checklist and rollback. Routine deploys:
 
 ```bash
-npx wrangler secret put GARMIN_PERSONAL_API_KEY --name coach-api
+npm run check && npm run deploy
 ```
+
+On the iPhone: open the app URL in Safari → sign in with the emailed code →
+Share → **Add to Home Screen**.
 
 ## Security
 
 * The Garmin Personal API key is a Worker secret; only the API Worker talks
   to Garmin. No endpoint returns the key or token.
-* The API Worker has no public route; the browser reaches it only through the
-  Access-protected Pages origin (same origin, no CORS).
-* State-changing requests must be JSON (CSRF guard).
+* Cloudflare Access protects the whole hostname (owner email only), and the
+  Worker verifies the Access JWT itself on every `/api/*` request (fails closed).
+* Health data is never cached on the device: API responses are `no-store` and
+  the service worker never stores `/api/*`.
+* Strict CSP and security headers; state-changing requests must be JSON (CSRF guard).
+* Error messages are sanitized: no keys, tokens or emails in responses or logs.
 
 See [docs/ARCHITECTURE.md § Security model](docs/ARCHITECTURE.md#6-security-model).
 

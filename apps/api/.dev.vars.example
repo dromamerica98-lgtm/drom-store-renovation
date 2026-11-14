@@ -1,3 +1,8 @@
-# Copy to .dev.vars for local development. Never commit .dev.vars.
-# Only needed once GARMIN_MODE=live (Stage 6).
-GARMIN_PERSONAL_API_KEY=
+# Copy to apps/api/.dev.vars for local development. Never commit .dev.vars.
+
+# Skip the Cloudflare Access check — honoured ONLY for requests to localhost /
+# 127.0.0.1. Never set this on the deployed Worker.
+ACCESS_DEV_BYPASS=1
+
+# Only needed once GARMIN_MODE=live:
+# GARMIN_PERSONAL_API_KEY=

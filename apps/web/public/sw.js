@@ -1,21 +1,30 @@
 /*
  * Coach service worker.
  *
+ * Privacy rule: personal health data is never stored by the service worker.
+ * /api/* requests are not intercepted at all (and the API answers with
+ * Cache-Control: no-store), so health data lives only in memory while the
+ * app is open.
+ *
  *  - Navigations: network first, fall back to the cached app shell (offline).
- *  - Hashed build assets (/assets/*): cache first — the filename changes on every build.
- *  - Other static files (icons, manifest): stale-while-revalidate.
- *  - GET /api/today: network first, fall back to the last good response, marked
- *    with an `x-coach-offline` header so the UI can say the data may be stale.
- *  - Every other /api request and all non-GET requests: network only.
+ *  - Hashed build assets (/assets/*): cache first — filenames change per build.
+ *  - Icons and manifest: stale-while-revalidate.
+ *  - Cloudflare Access endpoints (/cdn-cgi/*): never touched.
  */
-const VERSION = 'coach-v1';
+const VERSION = 'coach-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/apple-touch-icon.png'];
-const CACHED_API = ['/api/today'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches
+      .open(VERSION)
+      .then((cache) => Promise.all(SHELL.map((url) => cache.add(new Request(url, { credentials: 'same-origin' })).catch(() => undefined))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
+// Activating a new version deletes every older cache, including any health
+// data an earlier version may have stored.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -25,14 +34,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// The app asks for this on sign-out.
+self.addEventListener('message', (event) => {
+  if (event.data === 'clear-caches') {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
+  }
+});
+
+const cacheable = (response) => response.ok && response.type === 'basic' && !response.redirected;
+
 async function networkFirst(request, fallbackKey) {
   const cache = await caches.open(VERSION);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(fallbackKey ?? request, response.clone());
+    if (cacheable(response)) cache.put(fallbackKey, response.clone());
     return response;
   } catch (error) {
-    const cached = await cache.match(fallbackKey ?? request);
+    const cached = await cache.match(fallbackKey);
     if (!cached) throw error;
     return cached;
   }
@@ -43,7 +61,7 @@ async function cacheFirst(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (cacheable(response)) cache.put(request, response.clone());
   return response;
 }
 
@@ -52,26 +70,11 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request);
   const network = fetch(request)
     .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
+      if (cacheable(response)) cache.put(request, response.clone());
       return response;
     })
     .catch(() => cached);
   return cached ?? network;
-}
-
-async function apiWithOfflineFallback(request) {
-  const cache = await caches.open(VERSION);
-  try {
-    const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request);
-    if (!cached) throw error;
-    const headers = new Headers(cached.headers);
-    headers.set('x-coach-offline', '1');
-    return new Response(cached.body, { status: 200, headers });
-  }
 }
 
 self.addEventListener('fetch', (event) => {
@@ -79,11 +82,8 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/cdn-cgi/')) return;
 
-  if (url.pathname.startsWith('/api/')) {
-    if (CACHED_API.includes(url.pathname)) event.respondWith(apiWithOfflineFallback(request));
-    return;
-  }
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, '/'));
     return;

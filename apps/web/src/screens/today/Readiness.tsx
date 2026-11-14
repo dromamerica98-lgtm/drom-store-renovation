@@ -11,7 +11,7 @@ export function ReadinessCard({ data }: { data: TodayResponse }) {
   return (
     <section class="card readiness" aria-labelledby="readiness-title">
       <h2 class="card-title" id="readiness-title">
-        Readiness <span class="aside">vs your own baseline</span>
+        Readiness <span class="aside">app-derived · not a Garmin score</span>
       </h2>
       <div class="hero">
         <div class="score" aria-label={readiness.score === null ? 'No readiness score' : `Readiness ${readiness.score} out of 100`}>
@@ -38,6 +38,9 @@ export function ReadinessCard({ data }: { data: TodayResponse }) {
           <span>{calibrating.message}</span>
         </div>
       ) : null}
+      <p class="muted" style={{ margin: 0, fontSize: '12px' }}>
+        Calculated by this app from your Garmin data against your own baseline. A training guide, not a medical assessment.
+      </p>
       {readiness.confidence < 1 && !calibrating ? (
         <p class="muted" style={{ margin: 0, fontSize: '13px' }}>
           Confidence {Math.round(readiness.confidence * 100)}% — some inputs are missing today.

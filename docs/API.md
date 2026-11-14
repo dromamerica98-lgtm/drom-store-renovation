@@ -1,10 +1,14 @@
 # API
 
-The API Worker (`apps/api`, Hono) serves JSON under `/api`. The browser
-reaches it on the same origin: Vite proxies `/api` to `wrangler dev` in
-development; in production the Pages Function `functions/api/[[path]].ts`
-forwards it over a service binding. Request/response types live in
-`@coach/shared` and are imported by both sides.
+The Worker (`apps/api`, Hono) serves JSON under `/api` on the same origin as
+the PWA (Vite proxies `/api` to `wrangler dev` in development). Request/response
+types live in `@coach/shared` and are imported by both sides.
+
+**Authentication:** every `/api/*` request needs a valid Cloudflare Access JWT
+for the owner (`Cf-Access-Jwt-Assertion`, added by Access). Without it:
+`401 {"error":{"code":"unauthorized","message":"Sign in required"}}` — for
+every path, so unauthenticated callers cannot discover routes. All responses
+carry `Cache-Control: no-store, private`.
 
 ## Conventions
 

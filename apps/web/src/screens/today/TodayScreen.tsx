@@ -1,6 +1,6 @@
 import type { ModifyRequest, Reason, TodayResponse } from '@coach/shared';
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { api, ApiError } from '../../api';
+import { api, ApiError, signOut } from '../../api';
 import { Icon } from '../../components/Icon';
 import { Topbar } from '../../components/Topbar';
 import * as f from '../../format';
@@ -14,8 +14,7 @@ const SCENARIOS = ['normal', 'well_rested', 'fatigued', 'illness', 'calibrating'
 
 export function TodayScreen() {
   const [data, setData] = useState<TodayResponse | null>(null);
-  const [offline, setOffline] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; signIn: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [feedback, setFeedback] = useState<{ applied: boolean; reasons: Reason[] } | null>(null);
@@ -24,10 +23,12 @@ export function TodayScreen() {
     try {
       const res = await api.today();
       setData(res.data);
-      setOffline(res.offline);
       setError(null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Something went wrong.');
+      setError({
+        message: e instanceof ApiError ? e.message : 'Something went wrong.',
+        signIn: e instanceof ApiError && e.signInRequired,
+      });
     }
   }, []);
 
@@ -57,7 +58,7 @@ export function TodayScreen() {
       await api.sync();
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sync failed.');
+      setError({ message: e instanceof Error ? e.message : 'Sync failed.', signIn: e instanceof ApiError && e.signInRequired });
     } finally {
       setSyncing(false);
     }
@@ -91,11 +92,18 @@ export function TodayScreen() {
         </button>
       </Topbar>
       <main>
-        {offline ? <div class="offline">Offline — showing your last synced data.</div> : null}
-        {error && !data ? (
+        {error?.signIn ? (
+          <div class="empty">
+            <h2>Sign in again</h2>
+            <p>{error.message}</p>
+            <button class="pill primary" type="button" onClick={() => window.location.reload()}>
+              Sign in
+            </button>
+          </div>
+        ) : error && !data ? (
           <div class="empty">
             <h2>Couldn't load today</h2>
-            <p>{error}</p>
+            <p>{error.message}</p>
             <button class="pill" type="button" onClick={load}>
               Try again
             </button>
@@ -104,6 +112,11 @@ export function TodayScreen() {
           <TodaySkeleton />
         ) : (
           <>
+            {data.garminMode === 'mock' ? (
+              <div class="offline" role="note">
+                <strong>Demo data.</strong> These numbers are synthetic, not your Garmin data.
+              </div>
+            ) : null}
             <FlagAlert data={data} />
             <div class="today-grid">
               <section class="area-readiness" aria-label="Readiness">
@@ -142,6 +155,9 @@ export function TodayScreen() {
               ) : (
                 <span>Garmin connected</span>
               )}
+              <button class="link-btn" type="button" onClick={() => void signOut()}>
+                Sign out
+              </button>
             </footer>
           </>
         )}
